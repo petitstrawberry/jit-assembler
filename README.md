@@ -10,6 +10,7 @@ A multi-architecture JIT assembler library for runtime code generation that work
 - **Type-safe**: Leverages Rust's type system for safe instruction generation
 - **Dual API**: Both macro-based DSL and builder pattern for different use cases
 - **IDE-friendly**: Full autocomplete and type checking support
+- **JIT execution**: Direct execution of assembled code as functions (std-only)
 
 ## Supported Architectures
 
@@ -139,6 +140,45 @@ fn generate_csr_routine() -> Vec<u8> {
     code
 }
 ```
+
+### JIT Execution (std-only)
+
+Create and execute functions directly at runtime:
+
+```rust
+use jit_assembler::riscv::{reg, InstructionBuilder};
+
+// Create a JIT function that adds two numbers
+let add_func = unsafe {
+    InstructionBuilder::new()
+        .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
+        .ret()                          // Return result
+        .function::<fn(u64, u64) -> u64>()
+}.expect("Failed to create JIT function");
+
+// Call the JIT function directly (only works on RISC-V hosts)
+let result = add_func.call(10, 20);
+assert_eq!(result, 30);
+
+// Create a function that returns a constant
+let constant_func = unsafe {
+    InstructionBuilder::new()
+        .addi(reg::A0, reg::ZERO, 42)  // Load 42 into return register
+        .ret()                         // Return
+        .function::<fn() -> u64>()
+}.expect("Failed to create JIT function");
+
+let result = constant_func.call();
+assert_eq!(result, 42);
+```
+
+**Note**: JIT execution requires the target architecture to match the host architecture. RISC-V code will only execute correctly on RISC-V systems.
+
+**Features**:
+- Type-safe function signatures
+- Automatic memory management with `jit-allocator2`
+- Support for various function signatures: `fn() -> u64`, `fn(u64) -> u64`, `fn(u64, u64) -> u64`, etc.
+- Cross-platform executable memory allocation
 
 ## Contributing
 

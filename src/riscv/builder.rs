@@ -334,7 +334,7 @@ impl InstructionBuilder {
     /// 
     /// # Examples
     /// 
-    /// ```rust
+    /// ```rust,no_run
     /// use jit_assembler::riscv::{reg, InstructionBuilder};
     /// 
     /// let add_func = unsafe {
@@ -344,7 +344,8 @@ impl InstructionBuilder {
     ///         .function::<fn(u64, u64) -> u64>()
     /// }.expect("Failed to create JIT function");
     /// 
-    /// let result = add_func(10, 20); // Should return 30
+    /// // Call the JIT function directly (only works on RISC-V hosts)
+    /// let result = add_func.call(10, 20); // Should return 30
     /// ```
     #[cfg(feature = "std")]
     pub unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
