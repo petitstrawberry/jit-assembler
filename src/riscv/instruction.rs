@@ -262,6 +262,7 @@ pub mod alu_funct3 {
 pub mod csr {
     use super::Csr;
     
+    // Machine-mode CSRs
     pub const MSTATUS: Csr = Csr::new(0x300);
     pub const MISA: Csr = Csr::new(0x301);
     pub const MEDELEG: Csr = Csr::new(0x302);
@@ -274,6 +275,16 @@ pub mod csr {
     pub const MTVAL: Csr = Csr::new(0x343);
     pub const MIP: Csr = Csr::new(0x344);
     pub const MHARTID: Csr = Csr::new(0xf14);
+    
+    // Supervisor-mode CSRs
+    pub const SSTATUS: Csr = Csr::new(0x100);
+    pub const SIE: Csr = Csr::new(0x104);
+    pub const STVEC: Csr = Csr::new(0x105);
+    pub const SSCRATCH: Csr = Csr::new(0x140);
+    pub const SEPC: Csr = Csr::new(0x141);
+    pub const SCAUSE: Csr = Csr::new(0x142);
+    pub const STVAL: Csr = Csr::new(0x143);
+    pub const SIP: Csr = Csr::new(0x144);
 }
 
 /// Common registers
