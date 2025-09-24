@@ -1,4 +1,4 @@
-name: Rust
+name: Docker Image CI
 
 on:
   push:
@@ -6,17 +6,43 @@ on:
   pull_request:
     branches: [ "develop" ]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build:
+
+  test:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+
+    # Dockerfile と関連ファイルのハッシュを計算
+    - name: Generate Docker cache key
+      id: docker-cache-key
+      run: echo "key=docker-cache-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Docker キャッシュを復元
+    - name: Cache Docker image
+      id: docker-cache
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image
+        key: ${{ steps.docker-cache-key.outputs.key }}
+
+    # キャッシュがない場合のみビルド
+    - name: Build the Docker image
+      if: steps.docker-cache.outputs.cache-hit != 'true'
+      run: |
+        docker build . --file Dockerfile --tag scarlet-dev
+        docker save scarlet-dev > /tmp/docker-image
+
+    # キャッシュがある場合はロード
+    - name: Load cached Docker image
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image
+
+    - name: Build JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo build
+
+    - name: Test JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test
+      timeout-minutes: 5
