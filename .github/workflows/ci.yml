@@ -33,7 +33,7 @@ jobs:
       if: steps.docker-cache.outputs.cache-hit != 'true'
       run: |
         docker build . --file Dockerfile --tag jit-assembler-dev
-        docker save scarlet-dev > /tmp/docker-image
+        docker save jit-assembler-dev > /tmp/docker-image
 
     # キャッシュがある場合はロード
     - name: Load cached Docker image
