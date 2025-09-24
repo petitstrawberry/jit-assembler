@@ -17,11 +17,16 @@ use std::fs;
 fn assemble_riscv(assembly: &str) -> Vec<u8> {
     use std::io::Write;
     
-    // Create temporary assembly file
+    // Create unique temporary files to avoid conflicts with parallel tests
     let temp_dir = std::env::temp_dir();
-    let asm_file = temp_dir.join("test.s");
-    let obj_file = temp_dir.join("test.o");
-    let bin_file = temp_dir.join("test.bin");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let unique_id = format!("test_{}", timestamp);
+    let asm_file = temp_dir.join(format!("{}.s", unique_id));
+    let obj_file = temp_dir.join(format!("{}.o", unique_id));
+    let bin_file = temp_dir.join(format!("{}.bin", unique_id));
     
     // Write assembly to file
     let mut file = std::fs::File::create(&asm_file).expect("Failed to create assembly file");
@@ -214,24 +219,6 @@ fn test_macro_comprehensive() {
     }
 }
 
-// Debug binary correctness test
-#[cfg(feature = "std")]
-#[test]
-fn test_debug_single_instruction() {
-    // Test a single LUI instruction
-    let mut builder = InstructionBuilder::new();
-    builder.lui(reg::X1, 0x12345);
-    let instructions = builder.instructions();
-    let jit_bytes = instructions[0].bytes();
-    println!("JIT bytes for 'lui x1, 0x12345': {:02x?}", jit_bytes);
-    
-    let gnu_bytes = assemble_riscv("lui x1, 0x12345\n");
-    println!("GNU bytes for 'lui x1, 0x12345': {:02x?}", &gnu_bytes[0..4]);
-    
-    // Don't compare yet, just see the difference
-    // compare_instruction(instructions[0], "lui x1, 0x12345\n");
-}
-
 // Binary correctness tests comparing JIT assembler with GNU assembler output
 #[cfg(feature = "std")]
 #[test]
@@ -242,13 +229,13 @@ fn test_binary_correctness_arithmetic() {
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "addi x1, x0, 100\n");
     
-    // Test ADD instruction
+    // Test ADD instruction - use fresh builder
     let mut builder = InstructionBuilder::new();
     builder.add(reg::X3, reg::X1, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "add x3, x1, x2\n");
     
-    // Test SUB instruction  
+    // Test SUB instruction - use fresh builder  
     let mut builder = InstructionBuilder::new();
     builder.sub(reg::X4, reg::X3, reg::X1);
     let instructions = builder.instructions();
@@ -353,6 +340,142 @@ fn test_binary_correctness_upper_immediate() {
     builder.auipc(reg::X2, 0x6789A);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "auipc x2, 0x6789A\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_csr() {
+    // Test CSRRW instruction
+    let mut builder = InstructionBuilder::new();
+    builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrw x1, mstatus, x2\n");
+    
+    // Test CSRRS instruction
+    let mut builder = InstructionBuilder::new();
+    builder.csrrs(reg::X3, csr::MEPC, reg::X4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrs x3, mepc, x4\n");
+    
+    // Test CSRRWI instruction
+    let mut builder = InstructionBuilder::new();
+    builder.csrrwi(reg::X5, csr::MTVEC, 0x10);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrwi x5, mtvec, 0x10\n");
+    
+    // Test CSRR instruction (alias for csrrs with x0)
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X4, csr::MSTATUS);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x4, mstatus\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_branches() {
+    // Test BEQ instruction
+    let mut builder = InstructionBuilder::new();
+    builder.beq(reg::X1, reg::X2, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "beq x1, x2, .\n");
+    
+    // Test BNE instruction
+    let mut builder = InstructionBuilder::new();
+    builder.bne(reg::X3, reg::X4, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "bne x3, x4, .\n");
+    
+    // Test BLT instruction
+    let mut builder = InstructionBuilder::new();
+    builder.blt(reg::X5, reg::X6, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "blt x5, x6, .\n");
+    
+    // Test BGE instruction
+    let mut builder = InstructionBuilder::new();
+    builder.bge(reg::X7, reg::X8, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "bge x7, x8, .\n");
+    
+    // Test BLTU instruction
+    let mut builder = InstructionBuilder::new();
+    builder.bltu(reg::X9, reg::X10, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "bltu x9, x10, .\n");
+    
+    // Test BGEU instruction
+    let mut builder = InstructionBuilder::new();
+    builder.bgeu(reg::X11, reg::X12, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "bgeu x11, x12, .\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_jumps() {
+    // Test JAL instruction with zero offset
+    let mut builder = InstructionBuilder::new();
+    builder.jal(reg::X1, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "jal x1, .\n");
+    
+    // Test JALR instruction
+    let mut builder = InstructionBuilder::new();
+    builder.jalr(reg::X0, reg::X1, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "jalr x0, x1, 0\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_memory() {
+    // Test LD instruction
+    let mut builder = InstructionBuilder::new();
+    builder.ld(reg::X1, reg::X2, 8);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "ld x1, 8(x2)\n");
+    
+    // Test LW instruction
+    let mut builder = InstructionBuilder::new();
+    builder.lw(reg::X3, reg::X4, 4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lw x3, 4(x4)\n");
+    
+    // Test LH instruction
+    let mut builder = InstructionBuilder::new();
+    builder.lh(reg::X5, reg::X6, 2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lh x5, 2(x6)\n");
+    
+    // Test LB instruction
+    let mut builder = InstructionBuilder::new();
+    builder.lb(reg::X7, reg::X8, 1);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lb x7, 1(x8)\n");
+    
+    // Test SD instruction
+    let mut builder = InstructionBuilder::new();
+    builder.sd(reg::X9, reg::X10, 8);
+    let instructions = builder.instructions(); 
+    compare_instruction(instructions[0], "sd x10, 8(x9)\n");
+    
+    // Test SW instruction
+    let mut builder = InstructionBuilder::new();
+    builder.sw(reg::X11, reg::X12, 4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sw x12, 4(x11)\n");
+    
+    // Test SH instruction
+    let mut builder = InstructionBuilder::new();
+    builder.sh(reg::X13, reg::X14, 2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sh x14, 2(x13)\n");
+    
+    // Test SB instruction
+    let mut builder = InstructionBuilder::new();
+    builder.sb(reg::X15, reg::X16, 1);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sb x16, 1(x15)\n");
 }
 
 } // end of tests module
