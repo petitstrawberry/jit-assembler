@@ -478,4 +478,159 @@ fn test_binary_correctness_memory() {
     compare_instruction(instructions[0], "sb x16, 1(x15)\n");
 }
 
+/// Compare JIT assembler output with GNU assembler output for multiple instructions
+#[cfg(feature = "std")]
+fn compare_instructions(jit_instrs: &[Instruction], gnu_assembly: &str) {
+    let gnu_bytes = assemble_riscv(gnu_assembly);
+    
+    let mut jit_bytes = Vec::new();
+    for instr in jit_instrs {
+        jit_bytes.extend_from_slice(&instr.bytes());
+    }
+    
+    // The GNU assembler output might have extra padding, so we only compare the first N bytes
+    assert_eq!(jit_bytes.len(), jit_instrs.len() * 4, "JIT instructions should be 4 bytes each");
+    assert!(gnu_bytes.len() >= jit_bytes.len(), "GNU assembler output should be at least {} bytes", jit_bytes.len());
+    
+    assert_eq!(
+        jit_bytes, 
+        &gnu_bytes[0..jit_bytes.len()],
+        "JIT assembler output does not match GNU assembler output\nJIT: {:02x?}\nGNU: {:02x?}\nAssembly:\n{}",
+        jit_bytes,
+        &gnu_bytes[0..jit_bytes.len()],
+        gnu_assembly
+    );
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_arithmetic() {
+    // Test a sequence of arithmetic operations
+    let mut builder = InstructionBuilder::new();
+    builder.addi(reg::X1, reg::X0, 10);
+    builder.addi(reg::X2, reg::X0, 20);
+    builder.add(reg::X3, reg::X1, reg::X2);
+    builder.sub(reg::X4, reg::X3, reg::X1);
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions, 
+        "addi x1, x0, 10\naddi x2, x0, 20\nadd x3, x1, x2\nsub x4, x3, x1\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_logic_shifts() {
+    // Test a sequence of logical and shift operations
+    let mut builder = InstructionBuilder::new();
+    builder.lui(reg::X1, 0x12345);
+    builder.addi(reg::X2, reg::X1, 0x678);
+    builder.xor(reg::X3, reg::X1, reg::X2);
+    builder.slli(reg::X4, reg::X3, 4);
+    builder.srli(reg::X5, reg::X4, 2);
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "lui x1, 0x12345\naddi x2, x1, 0x678\nxor x3, x1, x2\nslli x4, x3, 4\nsrli x5, x4, 2\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_csr_operations() {
+    // Test a sequence of CSR operations
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X1, csr::MSTATUS);
+    builder.addi(reg::X2, reg::X1, 1);
+    builder.csrrw(reg::X3, csr::MSTATUS, reg::X2);
+    builder.csrrs(reg::X4, csr::MEPC, reg::X0);
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "csrr x1, mstatus\naddi x2, x1, 1\ncsrrw x3, mstatus, x2\ncsrrs x4, mepc, x0\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_memory_operations() {
+    // Test a sequence of memory operations
+    let mut builder = InstructionBuilder::new();
+    builder.lui(reg::X1, 0x10000);
+    builder.addi(reg::X2, reg::X0, 42);
+    builder.sw(reg::X1, reg::X2, 0);
+    builder.lw(reg::X3, reg::X1, 0);
+    builder.addi(reg::X4, reg::X3, 1);
+    builder.sw(reg::X1, reg::X4, 4);
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "lui x1, 0x10000\naddi x2, x0, 42\nsw x2, 0(x1)\nlw x3, 0(x1)\naddi x4, x3, 1\nsw x4, 4(x1)\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_control_flow() {
+    // Test a sequence with branches and jumps (using zero offsets for simplicity)
+    let mut builder = InstructionBuilder::new();
+    builder.addi(reg::X1, reg::X0, 5);
+    builder.addi(reg::X2, reg::X0, 10);
+    builder.beq(reg::X1, reg::X2, 0);  // Branch to self (zero offset)
+    builder.bne(reg::X1, reg::X2, 0);  // Branch to self (zero offset)
+    builder.jal(reg::X3, 0);           // Jump to self (zero offset)
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "addi x1, x0, 5\naddi x2, x0, 10\nbeq x1, x2, .\nbne x1, x2, .\njal x3, .\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_comprehensive() {
+    // Test a comprehensive sequence mixing different instruction types
+    let mut builder = InstructionBuilder::new();
+    builder.lui(reg::X1, 0x12345);          // Upper immediate
+    builder.addi(reg::X1, reg::X1, 0x678);  // Immediate arithmetic
+    builder.add(reg::X2, reg::X1, reg::X0);  // Register arithmetic
+    builder.slli(reg::X3, reg::X2, 1);      // Shift immediate
+    builder.xor(reg::X4, reg::X2, reg::X3);  // Logical operation
+    builder.csrr(reg::X5, csr::MSTATUS);    // CSR operation
+    builder.sw(reg::X1, reg::X4, 8);        // Store operation
+    builder.lw(reg::X6, reg::X1, 8);        // Load operation
+    builder.beq(reg::X4, reg::X6, 0);       // Branch operation
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "lui x1, 0x12345\naddi x1, x1, 0x678\nadd x2, x1, x0\nslli x3, x2, 1\nxor x4, x2, x3\ncsrr x5, mstatus\nsw x4, 8(x1)\nlw x6, 8(x1)\nbeq x4, x6, .\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_macro_comparison() {
+    // Compare macro-generated instructions with builder-generated instructions
+    let macro_instructions = crate::jit_asm! {
+        lui(reg::X1, 0x12345);
+        addi(reg::X2, reg::X1, 100);
+        add(reg::X3, reg::X1, reg::X2);
+        sub(reg::X4, reg::X3, reg::X1);
+        xor(reg::X5, reg::X3, reg::X4);
+    };
+    
+    let mut builder = InstructionBuilder::new();
+    builder.lui(reg::X1, 0x12345);
+    builder.addi(reg::X2, reg::X1, 100);
+    builder.add(reg::X3, reg::X1, reg::X2);
+    builder.sub(reg::X4, reg::X3, reg::X1);
+    builder.xor(reg::X5, reg::X3, reg::X4);
+    let builder_instructions = builder.instructions();
+    
+    // Both should match
+    assert_eq!(macro_instructions.len(), builder_instructions.len());
+    for (i, (macro_instr, builder_instr)) in macro_instructions.iter().zip(builder_instructions.iter()).enumerate() {
+        assert_eq!(macro_instr.bytes(), builder_instr.bytes(), 
+                   "Instruction {} differs between macro and builder", i);
+    }
+    
+    // Both should match GNU assembler
+    compare_instructions(&macro_instructions,
+        "lui x1, 0x12345\naddi x2, x1, 100\nadd x3, x1, x2\nsub x4, x3, x1\nxor x5, x3, x4\n");
+}
+
 } // end of tests module
