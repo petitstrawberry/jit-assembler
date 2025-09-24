@@ -97,6 +97,12 @@ impl InstructionBuilder {
         self
     }
 
+    /// CSR read (alias for csrrs with rs1=x0)
+    /// This is a common alias in RISC-V assembly
+    pub fn csrr(&mut self, rd: Register, csr: Csr) -> &mut Self {
+        self.csrrs(rd, csr, super::reg::X0)
+    }
+
     /// Generate add immediate instruction
     pub fn addi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
         let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, imm);

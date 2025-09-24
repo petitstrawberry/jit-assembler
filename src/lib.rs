@@ -62,3 +62,29 @@ pub mod arm64;
 // Re-export for convenience (default to RISC-V if available)
 #[cfg(feature = "riscv")]
 pub use riscv as default_arch;
+
+/// Generic JIT assembler macro - Reference implementation
+///
+/// This is a reference implementation that can be used by each architecture.
+/// Each architecture can provide their own specialized version by specifying
+/// the appropriate InstructionBuilder type.
+///
+/// Usage pattern for architecture-specific implementations:
+/// ```rust
+/// #[macro_export]
+/// macro_rules! arch_asm {
+///     ($($method:ident($($args:expr),*);)*) => {{
+///         $crate::jit_asm_generic!(YourArchInstructionBuilder, $($method($($args),*);)*)
+///     }};
+/// }
+/// ```
+#[macro_export]
+macro_rules! jit_asm_generic {
+    ($builder_type:ty, $($method:ident($($args:expr),*);)*) => {{
+        let mut builder = <$builder_type>::new();
+        $(
+            builder.$method($($args),*);
+        )*
+        builder.instructions().to_vec()
+    }};
+}
