@@ -1,0 +1,25 @@
+[package]
+name = "jit-assembler"
+version = "0.1.0"
+authors = ["petitstrawberry <petitstrawberry.dev@gmail.com>"]
+edition = "2021"
+description = "A multi-architecture JIT assembler library for runtime code generation"
+license = "MIT OR Apache-2.0"
+keywords = ["jit", "assembler", "compiler", "codegen", "no-std"]
+categories = ["development-tools", "no-std", "compilers"]
+repository = "https://github.com/petitstrawberry/jit-assembler"
+documentation = "https://docs.rs/jit-assembler"
+homepage = "https://github.com/petitstrawberry/jit-assembler"
+readme = "README.md"
+
+[dependencies]
+
+[features]
+default = ["std", "riscv"]
+std = []
+riscv = []
+x86_64 = []
+arm64 = []
+
+[dev-dependencies]
+# For tests that might need std features
