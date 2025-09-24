@@ -32,7 +32,7 @@ jobs:
     - name: Build the Docker image
       if: steps.docker-cache.outputs.cache-hit != 'true'
       run: |
-        docker build . --file Dockerfile --tag scarlet-dev
+        docker build . --file Dockerfile --tag jit-assembler-dev
         docker save scarlet-dev > /tmp/docker-image
 
     # キャッシュがある場合はロード
