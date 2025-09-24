@@ -175,7 +175,7 @@ pub fn encode_b_type(opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: 
 
 /// U-type instruction encoding (Upper immediate)
 pub fn encode_u_type(opcode: u8, rd: Register, imm: u32) -> Instruction {
-    let imm = imm & 0xfffff000; // 20-bit immediate in upper bits
+    let imm = (imm & 0xfffff) << 12; // 20-bit immediate shifted to upper bits
     let instr = imm | ((rd.value() as u32) << 7) | (opcode as u32);
     Instruction::Standard(instr)
 }
