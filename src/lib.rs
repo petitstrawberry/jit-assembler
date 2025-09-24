@@ -10,6 +10,7 @@
 //! - **Host-independent**: Runs on any host architecture to generate target code
 //! - **No-std compatible**: Works in both `std` and `no_std` environments
 //! - **Macro-based DSL**: Convenient syntax for writing assembly
+//! - **JIT execution**: Direct execution of assembled code as functions (std-only)
 //!
 //! ## Supported Architectures
 //!
@@ -44,12 +45,34 @@
 //!     // Write to executable memory...
 //! }
 //! ```
+//!
+//! ## JIT Execution (std-only)
+//!
+//! ```rust,no_run
+//! use jit_assembler::riscv::{reg, InstructionBuilder};
+//!
+//! // Create a JIT function that adds two numbers
+//! let add_func = unsafe {
+//!     InstructionBuilder::new()
+//!         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
+//!         .ret()                          // Return result
+//!         .function::<fn(u64, u64) -> u64>()
+//! }.expect("Failed to create JIT function");
+//!
+//! // Call the JIT function directly
+//! let result = add_func.call(10, 20);
+//! assert_eq!(result, 30);
+//! ```
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
 // Common types and traits shared across architectures
 pub mod common;
+
+// Re-export JIT functionality when std is available
+#[cfg(feature = "std")]
+pub use common::jit::{CallableJitFunction, JitError};
 
 // Architecture-specific modules
 #[cfg(feature = "riscv")]

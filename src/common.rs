@@ -75,3 +75,85 @@ impl fmt::Display for BuildError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for BuildError {}
+
+/// JIT execution functionality (std-only)
+#[cfg(feature = "std")]
+pub mod jit {
+    use std::marker::PhantomData;
+    use jit_allocator2::JitAllocator;
+
+    /// A JIT-compiled function that can be called directly
+    pub struct CallableJitFunction<F> {
+        _allocator: Box<JitAllocator>,
+        exec_ptr: *const u8,
+        _phantom: PhantomData<F>,
+    }
+
+    impl<F> CallableJitFunction<F> {
+        /// Create a new callable JIT function from instruction bytes
+        pub fn new(code: &[u8]) -> Result<Self, JitError> {
+            let mut allocator = JitAllocator::new(Default::default());
+            let (exec_ptr, mut_ptr) = allocator.alloc(code.len()).map_err(JitError::AllocationFailed)?;
+            
+            unsafe {
+                std::ptr::copy_nonoverlapping(code.as_ptr(), mut_ptr, code.len());
+            }
+
+            Ok(CallableJitFunction {
+                _allocator: allocator,
+                exec_ptr,
+                _phantom: PhantomData,
+            })
+        }
+
+        /// Get a function pointer to the JIT-compiled code
+        pub unsafe fn as_fn(&self) -> F {
+            std::mem::transmute_copy(&self.exec_ptr)
+        }
+    }
+
+    // Implement direct function call for common function signatures
+    impl CallableJitFunction<fn() -> u64> {
+        pub fn call(&self) -> u64 {
+            let func: fn() -> u64 = unsafe { self.as_fn() };
+            func()
+        }
+    }
+
+    impl CallableJitFunction<fn(u64) -> u64> {
+        pub fn call(&self, arg0: u64) -> u64 {
+            let func: fn(u64) -> u64 = unsafe { self.as_fn() };
+            func(arg0)
+        }
+    }
+
+    impl CallableJitFunction<fn(u64, u64) -> u64> {
+        pub fn call(&self, arg0: u64, arg1: u64) -> u64 {
+            let func: fn(u64, u64) -> u64 = unsafe { self.as_fn() };
+            func(arg0, arg1)
+        }
+    }
+
+    impl CallableJitFunction<fn(u64, u64, u64) -> u64> {
+        pub fn call(&self, arg0: u64, arg1: u64, arg2: u64) -> u64 {
+            let func: fn(u64, u64, u64) -> u64 = unsafe { self.as_fn() };
+            func(arg0, arg1, arg2)
+        }
+    }
+
+    /// Errors that can occur during JIT execution
+    #[derive(Debug)]
+    pub enum JitError {
+        AllocationFailed(jit_allocator2::Error),
+    }
+
+    impl std::fmt::Display for JitError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                JitError::AllocationFailed(e) => write!(f, "Failed to allocate JIT memory: {:?}", e),
+            }
+        }
+    }
+
+    impl std::error::Error for JitError {}
+}
