@@ -280,6 +280,7 @@ pub mod csr {
 pub mod reg {
     use super::Register;
     
+    // Standard register names (x0-x31)
     pub const X0: Register = Register::new(0);
     pub const X1: Register = Register::new(1);
     pub const X2: Register = Register::new(2);
@@ -312,4 +313,39 @@ pub mod reg {
     pub const X29: Register = Register::new(29);
     pub const X30: Register = Register::new(30);
     pub const X31: Register = Register::new(31);
+
+    // RISC-V ABI register aliases
+    pub const ZERO: Register = X0;  // Hard-wired zero
+    pub const RA: Register = X1;    // Return address
+    pub const SP: Register = X2;    // Stack pointer
+    pub const GP: Register = X3;    // Global pointer
+    pub const TP: Register = X4;    // Thread pointer
+    pub const T0: Register = X5;    // Temporary register 0
+    pub const T1: Register = X6;    // Temporary register 1
+    pub const T2: Register = X7;    // Temporary register 2
+    pub const S0: Register = X8;    // Saved register 0 / Frame pointer
+    pub const FP: Register = X8;    // Frame pointer (alias for s0)
+    pub const S1: Register = X9;    // Saved register 1
+    pub const A0: Register = X10;   // Function argument 0 / Return value 0
+    pub const A1: Register = X11;   // Function argument 1 / Return value 1
+    pub const A2: Register = X12;   // Function argument 2
+    pub const A3: Register = X13;   // Function argument 3
+    pub const A4: Register = X14;   // Function argument 4
+    pub const A5: Register = X15;   // Function argument 5
+    pub const A6: Register = X16;   // Function argument 6
+    pub const A7: Register = X17;   // Function argument 7
+    pub const S2: Register = X18;   // Saved register 2
+    pub const S3: Register = X19;   // Saved register 3
+    pub const S4: Register = X20;   // Saved register 4
+    pub const S5: Register = X21;   // Saved register 5
+    pub const S6: Register = X22;   // Saved register 6
+    pub const S7: Register = X23;   // Saved register 7
+    pub const S8: Register = X24;   // Saved register 8
+    pub const S9: Register = X25;   // Saved register 9
+    pub const S10: Register = X26;  // Saved register 10
+    pub const S11: Register = X27;  // Saved register 11
+    pub const T3: Register = X28;   // Temporary register 3
+    pub const T4: Register = X29;   // Temporary register 4
+    pub const T5: Register = X30;   // Temporary register 5
+    pub const T6: Register = X31;   // Temporary register 6
 }

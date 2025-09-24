@@ -165,6 +165,165 @@ fn test_method_chaining() {
     assert_eq!(instructions2.len(), 2);
 }
 
+#[test]
+fn test_register_aliases() {
+    // Test that register aliases map to correct x registers
+    assert_eq!(reg::ZERO.value(), 0);
+    assert_eq!(reg::RA.value(), 1);
+    assert_eq!(reg::SP.value(), 2);
+    assert_eq!(reg::GP.value(), 3);
+    assert_eq!(reg::TP.value(), 4);
+    assert_eq!(reg::T0.value(), 5);
+    assert_eq!(reg::T1.value(), 6);
+    assert_eq!(reg::T2.value(), 7);
+    assert_eq!(reg::S0.value(), 8);
+    assert_eq!(reg::FP.value(), 8); // FP is alias for S0
+    assert_eq!(reg::S1.value(), 9);
+    assert_eq!(reg::A0.value(), 10);
+    assert_eq!(reg::A1.value(), 11);
+    assert_eq!(reg::A2.value(), 12);
+    assert_eq!(reg::A3.value(), 13);
+    assert_eq!(reg::A4.value(), 14);
+    assert_eq!(reg::A5.value(), 15);
+    assert_eq!(reg::A6.value(), 16);
+    assert_eq!(reg::A7.value(), 17);
+    assert_eq!(reg::S2.value(), 18);
+    assert_eq!(reg::S3.value(), 19);
+    assert_eq!(reg::S4.value(), 20);
+    assert_eq!(reg::S5.value(), 21);
+    assert_eq!(reg::S6.value(), 22);
+    assert_eq!(reg::S7.value(), 23);
+    assert_eq!(reg::S8.value(), 24);
+    assert_eq!(reg::S9.value(), 25);
+    assert_eq!(reg::S10.value(), 26);
+    assert_eq!(reg::S11.value(), 27);
+    assert_eq!(reg::T3.value(), 28);
+    assert_eq!(reg::T4.value(), 29);
+    assert_eq!(reg::T5.value(), 30);
+    assert_eq!(reg::T6.value(), 31);
+}
+
+#[test]
+fn test_register_aliases_usage() {
+    // Test using aliases in actual instructions
+    let mut builder = InstructionBuilder::new();
+    builder
+        .addi(reg::A0, reg::ZERO, 42)    // Load 42 into a0
+        .add(reg::A1, reg::A0, reg::SP)  // Add a0 and sp, store in a1
+        .sub(reg::T0, reg::A1, reg::A0); // Subtract a0 from a1, store in t0
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 3);
+    
+    // Verify instructions are equivalent to using x registers
+    let mut builder2 = InstructionBuilder::new();
+    builder2
+        .addi(reg::X10, reg::X0, 42)    // a0 = x10, zero = x0
+        .add(reg::X11, reg::X10, reg::X2)  // a1 = x11, sp = x2
+        .sub(reg::X5, reg::X11, reg::X10); // t0 = x5
+    
+    let instructions2 = builder2.instructions();
+    assert_eq!(instructions, instructions2);
+}
+
+#[test]
+fn test_ret_instruction() {
+    // Test ret instruction (should be equivalent to jalr x0, x1, 0)
+    let mut builder = InstructionBuilder::new();
+    builder.ret();
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 1);
+    
+    // Compare with explicit jalr x0, x1, 0
+    let mut builder2 = InstructionBuilder::new();
+    builder2.jalr(reg::X0, reg::X1, 0);
+    
+    let instructions2 = builder2.instructions();
+    assert_eq!(instructions, instructions2);
+}
+
+#[test]
+fn test_ret_instruction_with_aliases() {
+    // Test ret using register aliases
+    let mut builder = InstructionBuilder::new();
+    builder.ret();
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 1);
+    
+    // Compare with explicit jalr using aliases
+    let mut builder2 = InstructionBuilder::new();
+    builder2.jalr(reg::ZERO, reg::RA, 0);
+    
+    let instructions2 = builder2.instructions();
+    assert_eq!(instructions, instructions2);
+}
+
+#[test]
+fn test_aliases_with_macro() {
+    // Test using aliases in macro
+    let instructions = crate::jit_asm! {
+        addi(reg::A0, reg::ZERO, 42);      // Load 42 into a0
+        add(reg::A1, reg::A0, reg::SP);     // Add a0 and sp, store in a1
+        sub(reg::T0, reg::A1, reg::A0);     // Subtract a0 from a1, store in t0
+        ret();                              // Return from function
+    };
+
+    assert_eq!(instructions.len(), 4);
+    
+    // Verify macro produces same results as builder with aliases
+    let builder_instructions = InstructionBuilder::new()
+        .addi(reg::A0, reg::ZERO, 42)
+        .add(reg::A1, reg::A0, reg::SP)
+        .sub(reg::T0, reg::A1, reg::A0)
+        .ret()
+        .instructions()
+        .to_vec();
+        
+    assert_eq!(instructions, builder_instructions);
+}
+
+#[test]
+fn test_comprehensive_alias_demo() {
+    // A more comprehensive test showing typical function prologue/epilogue
+    println!("Testing RISC-V register aliases and ret instruction...\n");
+
+    // Test register aliases
+    println!("Register alias mappings:");
+    println!("  a0 = x{}", reg::A0.value());
+    println!("  sp = x{}", reg::SP.value());
+    println!("  ra = x{}", reg::RA.value());
+    println!("  zero = x{}", reg::ZERO.value());
+    println!("  t0 = x{}", reg::T0.value());
+    println!();
+
+    // Test with macro (function-like code)
+    let instructions = crate::jit_asm! {
+        addi(reg::SP, reg::SP, -16);        // Allocate stack space
+        sd(reg::RA, reg::SP, 8);            // Save return address
+        sd(reg::S0, reg::SP, 0);            // Save frame pointer
+        addi(reg::S0, reg::SP, 16);         // Set frame pointer
+        
+        // Function body
+        addi(reg::A0, reg::ZERO, 42);       // Load 42 into a0 (return value)
+        
+        // Function epilogue
+        ld(reg::S0, reg::SP, 0);            // Restore frame pointer
+        ld(reg::RA, reg::SP, 8);            // Restore return address
+        addi(reg::SP, reg::SP, 16);         // Deallocate stack space
+        ret();                              // Return
+    };
+
+    assert_eq!(instructions.len(), 9);
+    
+    // Verify instructions contain expected values
+    println!("Generated {} instructions using aliases", instructions.len());
+    for (i, instr) in instructions.iter().enumerate() {
+        println!("  {}: {}", i, instr);
+    }
+}
+
 #[test] 
 fn test_macro_chaining() {
     let instructions = crate::jit_asm! {
