@@ -1102,4 +1102,64 @@ fn test_binary_correctness_multiline_macro_comparison() {
         "lui x1, 0x12345\naddi x2, x1, 100\nadd x3, x1, x2\nsub x4, x3, x1\nxor x5, x3, x4\n");
 }
 
+// JIT execution tests
+#[cfg(feature = "std")]
+#[test]
+fn test_jit_basic_function_creation() {
+    // Create a simple function that returns 42
+    let jit_func = unsafe {
+        InstructionBuilder::new()
+            .addi(reg::A0, reg::ZERO, 42)  // Load 42 into a0 (return value)
+            .ret()                         // Return
+            .function::<fn() -> u64>()
+    };
+
+    assert!(jit_func.is_ok(), "JIT function creation should succeed");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_jit_add_function() {
+    // Create a function that adds two numbers (a0 + a1 -> a0)
+    let jit_func = unsafe {
+        InstructionBuilder::new()
+            .add(reg::A0, reg::A0, reg::A1)  // Add a0 + a1, result in a0
+            .ret()                           // Return
+            .function::<fn(u64, u64) -> u64>()
+    };
+
+    assert!(jit_func.is_ok(), "JIT add function creation should succeed");
+}
+
+#[cfg(feature = "std")]
+#[test] 
+fn test_jit_constant_function() {
+    // Test that we can create a function that returns a constant
+    let jit_func = unsafe {
+        InstructionBuilder::new()
+            .lui(reg::A0, 0x12345)          // Load upper immediate 
+            .addi(reg::A0, reg::A0, 0x678)  // Add lower bits
+            .ret()                          // Return
+            .function::<fn() -> u64>()
+    };
+
+    assert!(jit_func.is_ok(), "JIT constant function creation should succeed");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_jit_function_chaining() {
+    // Test method chaining with JIT function creation
+    let result = unsafe {
+        InstructionBuilder::new()
+            .addi(reg::A0, reg::ZERO, 10)
+            .addi(reg::A1, reg::ZERO, 20)
+            .add(reg::A0, reg::A0, reg::A1)
+            .ret()
+            .function::<fn() -> u64>()
+    };
+
+    assert!(result.is_ok(), "Chained JIT function creation should succeed");
+}
+
 } // end of tests module

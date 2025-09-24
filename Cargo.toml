@@ -13,10 +13,11 @@ homepage = "https://github.com/petitstrawberry/jit-assembler"
 readme = "README.md"
 
 [dependencies]
+jit-allocator2 = { version = "0.2", optional = true }
 
 [features]
 default = ["std", "riscv"]
-std = []
+std = ["jit-allocator2"]
 riscv = []
 x86_64 = []
 arm64 = []

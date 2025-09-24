@@ -318,4 +318,42 @@ impl InstructionBuilder {
     pub fn ret(&mut self) -> &mut Self {
         self.jalr(super::reg::X0, super::reg::X1, 0)
     }
+
+    /// Create a JIT-compiled function from the assembled instructions (std-only)
+    /// 
+    /// This method converts the assembled instructions into executable machine code
+    /// that can be called directly as a function. The generic type parameter `F`
+    /// specifies the function signature.
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because:
+    /// - It allocates executable memory
+    /// - It assumes the assembled code follows the correct ABI
+    /// - The caller must ensure the function signature matches the actual code
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use jit_assembler::riscv::{reg, InstructionBuilder};
+    /// 
+    /// let add_func = unsafe {
+    ///     InstructionBuilder::new()
+    ///         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
+    ///         .ret()
+    ///         .function::<fn(u64, u64) -> u64>()
+    /// }.expect("Failed to create JIT function");
+    /// 
+    /// let result = add_func(10, 20); // Should return 30
+    /// ```
+    #[cfg(feature = "std")]
+    pub unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
+        // Convert instructions to bytes
+        let mut code = Vec::new();
+        for instr in &self.instructions {
+            code.extend_from_slice(&instr.bytes());
+        }
+
+        crate::common::jit::CallableJitFunction::<F>::new(&code)
+    }
 }
