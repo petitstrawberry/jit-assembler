@@ -105,6 +105,201 @@ fn test_csr_instructions() {
 }
 
 #[test]
+fn test_comprehensive_csr_support() {
+    let mut builder = InstructionBuilder::new();
+    
+    // Test all M-mode CSRs
+    builder.csrr(reg::X1, csr::MSTATUS);    // 0x300
+    builder.csrr(reg::X2, csr::MISA);       // 0x301
+    builder.csrr(reg::X3, csr::MIE);        // 0x304
+    builder.csrr(reg::X4, csr::MTVEC);      // 0x305
+    builder.csrr(reg::X5, csr::MSCRATCH);   // 0x340
+    builder.csrr(reg::X6, csr::MEPC);       // 0x341
+    builder.csrr(reg::X7, csr::MCAUSE);     // 0x342
+    builder.csrr(reg::X8, csr::MTVAL);      // 0x343
+    builder.csrr(reg::X9, csr::MIP);        // 0x344
+    builder.csrr(reg::X10, csr::MHARTID);   // 0xf14
+    
+    // Test all S-mode CSRs
+    builder.csrr(reg::X11, csr::SSTATUS);   // 0x100
+    builder.csrr(reg::X12, csr::SIE);       // 0x104
+    builder.csrr(reg::X13, csr::STVEC);     // 0x105
+    builder.csrr(reg::X14, csr::SSCRATCH);  // 0x140
+    builder.csrr(reg::X15, csr::SEPC);      // 0x141
+    builder.csrr(reg::X16, csr::SCAUSE);    // 0x142
+    builder.csrr(reg::X17, csr::STVAL);     // 0x143
+    builder.csrr(reg::X18, csr::SIP);       // 0x144
+
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 18); // 10 M-mode + 8 S-mode
+    
+    // Verify all instructions are non-zero (properly encoded)
+    for (i, instr) in instructions.iter().enumerate() {
+        assert!(instr.value() != 0, "Instruction {} should be non-zero", i);
+    }
+}
+
+#[test]
+fn test_csr_write_operations() {
+    let mut builder = InstructionBuilder::new();
+    
+    // Test write operations on both M-mode and S-mode CSRs
+    builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
+    builder.csrrw(reg::X3, csr::SSTATUS, reg::X4);
+    builder.csrrs(reg::X5, csr::MIE, reg::X6);
+    builder.csrrs(reg::X7, csr::SIE, reg::X8);
+    builder.csrrc(reg::X9, csr::MTVEC, reg::X10);
+    builder.csrrc(reg::X11, csr::STVEC, reg::X12);
+    
+    // Test immediate variants
+    builder.csrrwi(reg::X13, csr::MSCRATCH, 0x1f);
+    builder.csrrwi(reg::X14, csr::SSCRATCH, 0x0f);
+    builder.csrrsi(reg::X15, csr::MEPC, 0x10);
+    builder.csrrsi(reg::X16, csr::SEPC, 0x08);
+    builder.csrrci(reg::X17, csr::MCAUSE, 0x04);
+    builder.csrrci(reg::X18, csr::SCAUSE, 0x02);
+
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 12);
+    
+    // Verify all instructions are properly encoded
+    for instr in instructions {
+        assert!(instr.value() != 0);
+    }
+}
+
+#[test]
+fn test_csr_addresses() {
+    // Verify M-mode CSR addresses match RISC-V specification
+    assert_eq!(csr::MSTATUS.value(), 0x300);
+    assert_eq!(csr::MISA.value(), 0x301);
+    assert_eq!(csr::MIE.value(), 0x304);
+    assert_eq!(csr::MTVEC.value(), 0x305);
+    assert_eq!(csr::MSCRATCH.value(), 0x340);
+    assert_eq!(csr::MEPC.value(), 0x341);
+    assert_eq!(csr::MCAUSE.value(), 0x342);
+    assert_eq!(csr::MTVAL.value(), 0x343);
+    assert_eq!(csr::MIP.value(), 0x344);
+    assert_eq!(csr::MHARTID.value(), 0xf14);
+    
+    // Verify S-mode CSR addresses match RISC-V specification
+    assert_eq!(csr::SSTATUS.value(), 0x100);
+    assert_eq!(csr::SIE.value(), 0x104);
+    assert_eq!(csr::STVEC.value(), 0x105);
+    assert_eq!(csr::SSCRATCH.value(), 0x140);
+    assert_eq!(csr::SEPC.value(), 0x141);
+    assert_eq!(csr::SCAUSE.value(), 0x142);
+    assert_eq!(csr::STVAL.value(), 0x143);
+    assert_eq!(csr::SIP.value(), 0x144);
+}
+
+#[test]
+fn test_csr_with_macro() {
+    // Test CSR operations using macro syntax
+    let instructions = crate::jit_asm! {
+        // M-mode CSR operations
+        csrr(reg::T0, csr::MSTATUS);     // Read machine status
+        csrr(reg::T1, csr::MISA);        // Read machine ISA
+        csrrw(reg::T2, csr::MTVEC, reg::T0);  // Write machine trap vector
+        csrrs(reg::T3, csr::MIE, reg::ZERO);  // Read machine interrupt enable
+        
+        // S-mode CSR operations  
+        csrr(reg::T4, csr::SSTATUS);     // Read supervisor status
+        csrr(reg::T5, csr::STVEC);       // Read supervisor trap vector
+        csrrw(reg::T6, csr::SSCRATCH, reg::T4); // Write supervisor scratch
+        csrrs(reg::A0, csr::SIE, reg::ZERO);    // Read supervisor interrupt enable
+        
+        // Immediate variants
+        csrrwi(reg::A1, csr::SEPC, 0x10);     // Write supervisor exception PC
+        csrrsi(reg::A2, csr::SCAUSE, 0x08);   // Set supervisor cause bits
+        csrrci(reg::A3, csr::SIP, 0x04);      // Clear supervisor interrupt pending bits
+    };
+
+    assert_eq!(instructions.len(), 11);
+    
+    // Verify all instructions are properly encoded
+    for (i, instr) in instructions.iter().enumerate() {
+        assert!(instr.value() != 0, "Instruction {} should be non-zero", i);
+    }
+}
+
+#[test]
+fn test_csr_encoding_verification() {
+    let mut builder = InstructionBuilder::new();
+    
+    // Test specific CSR encodings
+    builder.csrr(reg::X1, csr::SSTATUS);   // Should encode 0x100 CSR address
+    builder.csrr(reg::X2, csr::MSTATUS);   // Should encode 0x300 CSR address
+    builder.csrr(reg::X3, csr::SEPC);      // Should encode 0x141 CSR address
+    builder.csrr(reg::X4, csr::MHARTID);   // Should encode 0xf14 CSR address
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 4);
+    
+    // Extract and verify CSR addresses from instruction encoding
+    // CSR address is in bits [31:20] of the instruction
+    let sstatus_csr = (instructions[0].value() >> 20) & 0xfff;
+    let mstatus_csr = (instructions[1].value() >> 20) & 0xfff;
+    let sepc_csr = (instructions[2].value() >> 20) & 0xfff;
+    let mhartid_csr = (instructions[3].value() >> 20) & 0xfff;
+    
+    assert_eq!(sstatus_csr, 0x100, "SSTATUS CSR address should be 0x100");
+    assert_eq!(mstatus_csr, 0x300, "MSTATUS CSR address should be 0x300");
+    assert_eq!(sepc_csr, 0x141, "SEPC CSR address should be 0x141");
+    assert_eq!(mhartid_csr, 0xf14, "MHARTID CSR address should be 0xf14");
+}
+
+#[test]
+fn test_issue_requested_csrs() {
+    // Test all CSRs specifically mentioned in the GitHub issue
+    let mut builder = InstructionBuilder::new();
+    
+    // M-mode CSRs from issue: mscratch, mhartid, misa, mstatus, mie, mip, mtvec, mcause, mepc, mtval
+    builder.csrr(reg::X1, csr::MSCRATCH);
+    builder.csrr(reg::X2, csr::MHARTID);
+    builder.csrr(reg::X3, csr::MISA);
+    builder.csrr(reg::X4, csr::MSTATUS);
+    builder.csrr(reg::X5, csr::MIE);
+    builder.csrr(reg::X6, csr::MIP);
+    builder.csrr(reg::X7, csr::MTVEC);
+    builder.csrr(reg::X8, csr::MCAUSE);
+    builder.csrr(reg::X9, csr::MEPC);
+    builder.csrr(reg::X10, csr::MTVAL);
+    
+    // S-mode CSRs from issue: sscratch, sstatus, sie, sip, stvec, scause, sepc, stval
+    builder.csrr(reg::X11, csr::SSCRATCH);
+    builder.csrr(reg::X12, csr::SSTATUS);
+    builder.csrr(reg::X13, csr::SIE);
+    builder.csrr(reg::X14, csr::SIP);
+    builder.csrr(reg::X15, csr::STVEC);
+    builder.csrr(reg::X16, csr::SCAUSE);
+    builder.csrr(reg::X17, csr::SEPC);
+    builder.csrr(reg::X18, csr::STVAL);
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 18, "Should have 18 CSR instructions (10 M-mode + 8 S-mode)");
+    
+    // Verify all instructions are properly encoded
+    for (i, instr) in instructions.iter().enumerate() {
+        assert!(instr.value() != 0, "Instruction {} should be non-zero", i);
+    }
+    
+    // Test that we can also perform write operations on these CSRs
+    let mut builder2 = InstructionBuilder::new();
+    builder2.csrrw(reg::A0, csr::MSCRATCH, reg::A1);
+    builder2.csrrw(reg::A2, csr::SSCRATCH, reg::A3);
+    builder2.csrrsi(reg::A4, csr::MSTATUS, 0x08);
+    builder2.csrrci(reg::A5, csr::SSTATUS, 0x02);
+    
+    let write_instructions = builder2.instructions();
+    assert_eq!(write_instructions.len(), 4);
+    
+    for instr in write_instructions {
+        assert!(instr.value() != 0, "Write instruction should be non-zero");
+    }
+}
+
+#[test]
 fn test_arithmetic_instructions() {
     let mut builder = InstructionBuilder::new();
     
@@ -531,6 +726,87 @@ fn test_binary_correctness_csr() {
 
 #[cfg(feature = "std")]
 #[test]
+fn test_binary_correctness_s_mode_csrs() {
+    // Test S-mode CSR read operations
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X1, csr::SSTATUS);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x1, sstatus\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X2, csr::SIE);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x2, sie\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X3, csr::STVEC);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x3, stvec\n");
+    
+    let mut builder = InstructionBuilder::new(); 
+    builder.csrr(reg::X4, csr::SSCRATCH);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x4, sscratch\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X5, csr::SEPC);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x5, sepc\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X6, csr::SCAUSE);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x6, scause\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X7, csr::STVAL);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x7, stval\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X8, csr::SIP);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrr x8, sip\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_s_mode_csr_write_operations() {
+    // Test S-mode CSR write operations
+    let mut builder = InstructionBuilder::new();
+    builder.csrrw(reg::X1, csr::SSTATUS, reg::X2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrw x1, sstatus, x2\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrrs(reg::X3, csr::SIE, reg::X4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrs x3, sie, x4\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrrc(reg::X5, csr::STVEC, reg::X6);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrc x5, stvec, x6\n");
+    
+    // Test immediate variants
+    let mut builder = InstructionBuilder::new();
+    builder.csrrwi(reg::X7, csr::SSCRATCH, 0x1f);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrwi x7, sscratch, 0x1f\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrrsi(reg::X8, csr::SEPC, 0x10);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrsi x8, sepc, 0x10\n");
+    
+    let mut builder = InstructionBuilder::new();
+    builder.csrrci(reg::X9, csr::SIP, 0x08);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrrci x9, sip, 0x08\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
 fn test_binary_correctness_branches() {
     // Test BEQ instruction
     let mut builder = InstructionBuilder::new();
@@ -705,6 +981,40 @@ fn test_binary_correctness_multiline_csr_operations() {
     let instructions = builder.instructions();
     compare_instructions(instructions,
         "csrr x1, mstatus\naddi x2, x1, 1\ncsrrw x3, mstatus, x2\ncsrrs x4, mepc, x0\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_mixed_mode_csr_operations() {
+    // Test a sequence mixing M-mode and S-mode CSR operations
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X1, csr::MSTATUS);     // M-mode
+    builder.csrr(reg::X2, csr::SSTATUS);     // S-mode
+    builder.csrrw(reg::X3, csr::MTVEC, reg::X1);     // M-mode write
+    builder.csrrw(reg::X4, csr::STVEC, reg::X2);     // S-mode write
+    builder.csrrs(reg::X5, csr::MIE, reg::X0);       // M-mode read
+    builder.csrrs(reg::X6, csr::SIE, reg::X0);       // S-mode read
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "csrr x1, mstatus\ncsrr x2, sstatus\ncsrrw x3, mtvec, x1\ncsrrw x4, stvec, x2\ncsrrs x5, mie, x0\ncsrrs x6, sie, x0\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_s_mode_supervisor_context_switch() {
+    // Test S-mode context switch sequence
+    let mut builder = InstructionBuilder::new();
+    builder.csrr(reg::X1, csr::SSTATUS);     // Read supervisor status
+    builder.csrr(reg::X2, csr::SEPC);        // Read supervisor exception PC
+    builder.csrr(reg::X3, csr::SCAUSE);      // Read supervisor cause
+    builder.csrr(reg::X4, csr::STVAL);       // Read supervisor trap value
+    builder.csrrw(reg::X5, csr::SSCRATCH, reg::SP);  // Save stack pointer
+    builder.csrrwi(reg::X6, csr::SIE, 0x0);  // Disable supervisor interrupts
+    
+    let instructions = builder.instructions();
+    compare_instructions(instructions,
+        "csrr x1, sstatus\ncsrr x2, sepc\ncsrr x3, scause\ncsrr x4, stval\ncsrrw x5, sscratch, x2\ncsrrwi x6, sie, 0x0\n");
 }
 
 #[cfg(feature = "std")]
