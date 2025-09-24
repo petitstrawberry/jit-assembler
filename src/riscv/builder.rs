@@ -312,4 +312,10 @@ impl InstructionBuilder {
         self.push(instr);
         self
     }
+
+    /// Return instruction (alias for jalr x0, x1, 0)
+    /// This is a common alias in RISC-V assembly for returning from a function
+    pub fn ret(&mut self) -> &mut Self {
+        self.jalr(super::reg::X0, super::reg::X1, 0)
+    }
 }

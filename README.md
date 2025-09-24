@@ -34,28 +34,31 @@ use jit_assembler::jit_asm;
 
 // Macro style (concise and assembly-like)
 let instructions = jit_asm! {
-    csrrw(reg::X1, csr::MSTATUS, reg::X2);  // CSR read-write  
-    csrr(reg::X4, csr::MSTATUS);            // CSR read (alias)
-    addi(reg::X3, reg::X1, 100);            // Add immediate
-    add(reg::X4, reg::X1, reg::X2);         // Register add
-    beq(reg::X1, reg::X2, 8);               // Branch if equal
-    jal(reg::X1, 0x1000);                   // Jump and link
+    csrrw(reg::RA, csr::MSTATUS, reg::SP);   // CSR read-write using aliases
+    csrr(reg::T0, csr::MSTATUS);             // CSR read (alias)
+    addi(reg::A0, reg::ZERO, 100);           // Add immediate using aliases
+    add(reg::A1, reg::A0, reg::SP);          // Register add with aliases
+    beq(reg::A0, reg::A1, 8);                // Branch if equal
+    jal(reg::RA, 0x1000);                    // Jump and link
+    ret();                                   // Return (alias for jalr x0, x1, 0)
 };
 
 // Method chaining style (recommended for programmatic use)
 let mut builder = InstructionBuilder::new();
 let instructions2 = builder
-    .csrrw(reg::X1, csr::MSTATUS, reg::X2)  // CSR read-write
-    .addi(reg::X3, reg::X1, 100)            // Add immediate
-    .add(reg::X4, reg::X1, reg::X2)         // Register add
-    .beq(reg::X1, reg::X2, 8)               // Branch if equal
-    .jal(reg::X1, 0x1000)                   // Jump and link
+    .csrrw(reg::RA, csr::MSTATUS, reg::SP)   // CSR read-write using aliases
+    .addi(reg::A0, reg::ZERO, 100)           // Add immediate with aliases
+    .add(reg::A1, reg::A0, reg::SP)          // Register add using aliases
+    .beq(reg::A0, reg::A1, 8)                // Branch if equal
+    .jal(reg::RA, 0x1000)                    // Jump and link
+    .ret()                                   // Return instruction
     .instructions();
 
 // Traditional style
 let mut builder3 = InstructionBuilder::new();
-builder3.csrrw(reg::X1, csr::MSTATUS, reg::X2);
-builder3.addi(reg::X3, reg::X1, 100);
+builder3.csrrw(reg::RA, csr::MSTATUS, reg::SP);
+builder3.addi(reg::A0, reg::ZERO, 100);
+builder3.ret();
 let instructions3 = builder3.instructions();
 
 // Convert to bytes for execution
@@ -105,10 +108,10 @@ use jit_assembler::jit_asm;
 // Simple function generator with macro
 fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
     let instructions = jit_asm! {
-        addi(reg::X1, reg::X0, a);    // Load first operand
-        addi(reg::X2, reg::X0, b);    // Load second operand
-        add(reg::X3, reg::X1, reg::X2); // Add them
-        jalr(reg::X0, reg::X1, 0);    // Return
+        addi(reg::A0, reg::ZERO, a);       // Load first operand into a0
+        addi(reg::A1, reg::ZERO, b);       // Load second operand into a1
+        add(reg::A0, reg::A0, reg::A1);    // Add them, result in a0
+        ret();                             // Return
     };
     
     // Convert to bytes for execution
@@ -124,9 +127,9 @@ fn generate_csr_routine() -> Vec<u8> {
     let mut builder = InstructionBuilder::new();
     
     builder
-        .csrr(reg::X1, csr::MSTATUS)     // Read current status
-        .addi(reg::X2, reg::X1, 1)       // Modify value
-        .csrrw(reg::X3, csr::MSTATUS, reg::X2); // Write back
+        .csrr(reg::T0, csr::MSTATUS)         // Read current status into t0
+        .addi(reg::T1, reg::T0, 1)           // Modify value in t1
+        .csrrw(reg::A0, csr::MSTATUS, reg::T1); // Write back, old value in a0
     
     // Convert to executable code
     let mut code = Vec::new();

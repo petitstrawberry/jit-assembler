@@ -25,15 +25,17 @@
 //! // Method chaining style (recommended)
 //! let mut builder = InstructionBuilder::new();
 //! let instructions = builder
-//!     .csrrw(reg::X1, csr::MSTATUS, reg::X2)
-//!     .addi(reg::X3, reg::X1, 100)
-//!     .add(reg::X4, reg::X1, reg::X2)
+//!     .csrrw(reg::RA, csr::MSTATUS, reg::SP)
+//!     .addi(reg::A0, reg::ZERO, 100)
+//!     .add(reg::A1, reg::A0, reg::SP)
+//!     .ret()
 //!     .instructions();
 //!
 //! // Traditional style
 //! let mut builder2 = InstructionBuilder::new();
-//! builder2.csrrw(reg::X1, csr::MSTATUS, reg::X2);
-//! builder2.addi(reg::X3, reg::X1, 100);
+//! builder2.csrrw(reg::RA, csr::MSTATUS, reg::SP);
+//! builder2.addi(reg::A0, reg::ZERO, 100);
+//! builder2.ret();
 //! let instructions2 = builder2.instructions();
 //!
 //! // Convert to bytes for execution
