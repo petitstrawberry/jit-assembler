@@ -45,15 +45,44 @@ pub trait InstructionBuilder<I: Instruction> {
     /// that can be called directly as a function. The generic type parameter `F`
     /// specifies the function signature.
     /// 
+    /// # ABI Compatibility
+    /// 
+    /// While you specify a Rust function type like `fn() -> u64`, the actual JIT
+    /// code uses C ABI internally for stability across Rust versions. This conversion
+    /// is handled transparently by the `call()` methods.
+    /// 
+    /// # Limitations
+    /// 
+    /// Currently supports function signatures with up to 7 arguments. For functions
+    /// with more arguments or complex calling conventions, use manual function pointer
+    /// conversion.
+    /// 
     /// # Safety
     /// 
     /// This function is unsafe because:
     /// - It allocates executable memory
-    /// - It assumes the assembled code follows the correct ABI
+    /// - It assumes the assembled code follows the correct C ABI
     /// - The caller must ensure the function signature matches the actual code
+    /// - The assembled code must be valid for the target architecture
     /// 
     #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
+
+    /// Create a raw JIT-compiled function for manual type conversion (std-only)
+    /// 
+    /// This method is similar to `function()` but returns a type-erased function
+    /// that allows manual conversion to any function signature. Use this for
+    /// function signatures with more than 7 arguments or custom calling conventions.
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because:
+    /// - It allocates executable memory  
+    /// - The caller must manually ensure type safety when calling `as_fn()`
+    /// - The assembled code must be valid for the target architecture
+    /// 
+    #[cfg(feature = "std")]
+    unsafe fn raw_function(&self) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError>;
 }
 
 /// Convenience functions for instruction collections
@@ -325,7 +354,88 @@ pub mod jit {
     use std::marker::PhantomData;
     use jit_allocator2::JitAllocator;
 
+    /// A raw JIT-compiled function for manual type conversion
+    /// 
+    /// This is a type-erased version of `CallableJitFunction` that allows
+    /// manual function pointer conversion for cases not covered by the
+    /// predefined `call()` methods.
+    /// 
+    /// # Usage
+    /// 
+    /// ```rust,no_run
+    /// # use jit_assembler::common::jit::*;
+    /// # let code = &[0u8; 4];
+    /// let raw_func = RawCallableJitFunction::new(code)?;
+    /// 
+    /// // Manual conversion to any function type
+    /// let func: extern "C" fn(u64, u64, u64, u64, u64, u64, u64, u64) -> u64 = 
+    ///     unsafe { raw_func.as_fn() };
+    /// let result = func(1, 2, 3, 4, 5, 6, 7, 8);
+    /// # Ok::<(), JitError>(())
+    /// ```
+    pub struct RawCallableJitFunction {
+        _allocator: Box<JitAllocator>,
+        exec_ptr: *const u8,
+    }
+
+    impl RawCallableJitFunction {
+        /// Create a new raw callable JIT function from instruction bytes
+        pub fn new(code: &[u8]) -> Result<Self, JitError> {
+            let mut allocator = JitAllocator::new(Default::default());
+            let (exec_ptr, mut_ptr) = allocator.alloc(code.len()).map_err(JitError::AllocationFailed)?;
+            
+            unsafe {
+                std::ptr::copy_nonoverlapping(code.as_ptr(), mut_ptr, code.len());
+            }
+
+            Ok(RawCallableJitFunction {
+                _allocator: allocator,
+                exec_ptr,
+            })
+        }
+
+        /// Convert to a function pointer of the specified type
+        /// 
+        /// # Safety
+        /// 
+        /// The caller must ensure that:
+        /// - The function signature `F` matches the actual assembled code
+        /// - The assembled code follows the expected calling convention (usually C ABI)
+        /// - The function pointer is called with valid arguments
+        /// 
+        /// # Example
+        /// 
+        /// ```rust,no_run
+        /// # use jit_assembler::common::jit::*;
+        /// # let code = &[0u8; 4];
+        /// let raw_func = RawCallableJitFunction::new(code)?;
+        /// 
+        /// // For complex signatures not covered by CallableJitFunction
+        /// let func: extern "C" fn(u64, u64, u64, u64, u64, u64, u64, u64) -> u64 = 
+        ///     unsafe { raw_func.as_fn() };
+        /// let result = func(1, 2, 3, 4, 5, 6, 7, 8);
+        /// # Ok::<(), JitError>(())
+        /// ```
+        pub unsafe fn as_fn<F>(&self) -> F {
+            std::mem::transmute_copy(&self.exec_ptr)
+        }
+    }
+
     /// A JIT-compiled function that can be called directly
+    /// 
+    /// This structure wraps executable machine code and provides type-safe
+    /// calling methods. While the type parameter `F` represents a Rust function
+    /// signature, the actual execution uses C ABI for stability.
+    /// 
+    /// # Supported Signatures
+    /// 
+    /// Currently supports function signatures with 0-7 arguments:
+    /// - `fn() -> R`
+    /// - `fn(A1) -> R`  
+    /// - `fn(A1, A2) -> R`
+    /// - ... up to `fn(A1, A2, A3, A4, A5, A6, A7) -> R`
+    /// 
+    /// For unsupported signatures, use `RawCallableJitFunction` instead.
     pub struct CallableJitFunction<F> {
         _allocator: Box<JitAllocator>,
         exec_ptr: *const u8,
@@ -348,20 +458,20 @@ pub mod jit {
                 _phantom: PhantomData,
             })
         }
-
-        /// Get a function pointer to the JIT-compiled code
-        pub unsafe fn as_fn(&self) -> F {
-            std::mem::transmute_copy(&self.exec_ptr)
-        }
     }
 
-    /// Direct call methods based on function signature - the ultimate solution!
-    /// These override the generic call method with signature-specific versions
+    /// Direct call methods based on function signature
+    /// 
+    /// These methods provide type-safe calling with automatic ABI conversion from
+    /// Rust function types to C ABI. Currently supports 0-7 arguments.
+    /// 
+    /// The conversion from `fn(...)` to `extern "C" fn(...)` is handled internally
+    /// for ABI stability across Rust versions.
     
     impl<R> CallableJitFunction<fn() -> R> {
         /// Call with no arguments - natural syntax: func.call()
         pub fn call(&self) -> R {
-            let func: fn() -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn() -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func()
         }
     }
@@ -369,7 +479,7 @@ pub mod jit {
     impl<A1, R> CallableJitFunction<fn(A1) -> R> {
         /// Call with one argument - natural syntax: func.call(arg)
         pub fn call(&self, arg1: A1) -> R {
-            let func: fn(A1) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1)
         }
     }
@@ -377,7 +487,7 @@ pub mod jit {
     impl<A1, A2, R> CallableJitFunction<fn(A1, A2) -> R> {
         /// Call with two arguments - natural syntax: func.call(arg1, arg2)
         pub fn call(&self, arg1: A1, arg2: A2) -> R {
-            let func: fn(A1, A2) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2)
         }
     }
@@ -385,7 +495,7 @@ pub mod jit {
     impl<A1, A2, A3, R> CallableJitFunction<fn(A1, A2, A3) -> R> {
         /// Call with three arguments - natural syntax: func.call(arg1, arg2, arg3)
         pub fn call(&self, arg1: A1, arg2: A2, arg3: A3) -> R {
-            let func: fn(A1, A2, A3) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2, A3) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2, arg3)
         }
     }
@@ -393,7 +503,7 @@ pub mod jit {
     impl<A1, A2, A3, A4, R> CallableJitFunction<fn(A1, A2, A3, A4) -> R> {
         /// Call with four arguments - natural syntax: func.call(arg1, arg2, arg3, arg4)
         pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4) -> R {
-            let func: fn(A1, A2, A3, A4) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2, A3, A4) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2, arg3, arg4)
         }
     }
@@ -401,7 +511,7 @@ pub mod jit {
     impl<A1, A2, A3, A4, A5, R> CallableJitFunction<fn(A1, A2, A3, A4, A5) -> R> {
         /// Call with five arguments
         pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5) -> R {
-            let func: fn(A1, A2, A3, A4, A5) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2, A3, A4, A5) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2, arg3, arg4, arg5)
         }
     }
@@ -409,7 +519,7 @@ pub mod jit {
     impl<A1, A2, A3, A4, A5, A6, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6) -> R> {
         /// Call with six arguments
         pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2, A3, A4, A5, A6) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2, arg3, arg4, arg5, arg6)
         }
     }
@@ -417,7 +527,7 @@ pub mod jit {
     impl<A1, A2, A3, A4, A5, A6, A7, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7) -> R> {
         /// Call with seven arguments
         pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6, A7) -> R = unsafe { self.as_fn() };
+            let func: extern "C" fn(A1, A2, A3, A4, A5, A6, A7) -> R = unsafe { std::mem::transmute_copy(&self.exec_ptr) };
             func(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
         }
     }

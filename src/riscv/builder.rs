@@ -95,6 +95,12 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
         let code = self.instructions().to_bytes();
         crate::common::jit::CallableJitFunction::<F>::new(&code)
     }
+
+    #[cfg(feature = "std")]
+    unsafe fn raw_function(&self) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError> {
+        let code = self.instructions().to_bytes();
+        crate::common::jit::RawCallableJitFunction::new(&code)
+    }
 }
 
 impl Riscv64InstructionBuilder {
