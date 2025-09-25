@@ -127,7 +127,7 @@ fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
         ret();                             // Return
     };
     
-    // Convert to bytes for execution (new simplified API)
+    // Convert to bytes for execution
     instructions.to_bytes()
 }
 
@@ -140,7 +140,7 @@ fn generate_csr_routine() -> Vec<u8> {
         .addi(reg::T1, reg::T0, 1)           // Modify value in t1
         .csrrw(reg::A0, csr::MSTATUS, reg::T1); // Write back, old value in a0
     
-    // Convert to executable code (new simplified API)
+    // Convert to executable code
     builder.instructions().to_bytes()
 }
 ```
