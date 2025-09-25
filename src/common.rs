@@ -18,8 +18,20 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     /// Get the size of this instruction in bytes
     fn size(&self) -> usize;
     
-    #[cfg(feature = "std")]
     /// Create a JIT-compiled function from the assembled instructions (std-only)
+    /// 
+    /// This method converts the assembled instructions into executable machine code
+    /// that can be called directly as a function. The generic type parameter `F`
+    /// specifies the function signature.
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because:
+    /// - It allocates executable memory
+    /// - It assumes the assembled code follows the correct ABI
+    /// - The caller must ensure the function signature matches the actual code
+    /// 
+    #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
 }
 
