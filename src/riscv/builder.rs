@@ -137,10 +137,48 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    // Pseudo-instructions for convenience
+
     /// CSR read (alias for csrrs with rs1=x0)
     /// This is a common alias in RISC-V assembly
     pub fn csrr(&mut self, rd: Register, csr: Csr) -> &mut Self {
         self.csrrs(rd, csr, super::reg::X0)
+    }
+
+    /// CSR write (alias for csrrw with rd=x0)
+    /// This is a common alias in RISC-V assembly for writing to CSR without reading old value
+    pub fn csrw(&mut self, csr: Csr, rs1: Register) -> &mut Self {
+        self.csrrw(super::reg::X0, csr, rs1)
+    }
+
+    /// CSR set (alias for csrrs with rd=x0)
+    /// This is a common alias in RISC-V assembly for setting bits in CSR without reading old value
+    pub fn csrs(&mut self, csr: Csr, rs1: Register) -> &mut Self {
+        self.csrrs(super::reg::X0, csr, rs1)
+    }
+
+    /// CSR clear (alias for csrrc with rd=x0)
+    /// This is a common alias in RISC-V assembly for clearing bits in CSR without reading old value
+    pub fn csrc(&mut self, csr: Csr, rs1: Register) -> &mut Self {
+        self.csrrc(super::reg::X0, csr, rs1)
+    }
+
+    /// CSR write immediate (alias for csrrwi with rd=x0)
+    /// This is a common alias in RISC-V assembly for writing immediate to CSR without reading old value
+    pub fn csrwi(&mut self, csr: Csr, uimm: u8) -> &mut Self {
+        self.csrrwi(super::reg::X0, csr, uimm)
+    }
+
+    /// CSR set immediate (alias for csrrsi with rd=x0)
+    /// This is a common alias in RISC-V assembly for setting bits in CSR with immediate without reading old value
+    pub fn csrsi(&mut self, csr: Csr, uimm: u8) -> &mut Self {
+        self.csrrsi(super::reg::X0, csr, uimm)
+    }
+
+    /// CSR clear immediate (alias for csrrci with rd=x0)
+    /// This is a common alias in RISC-V assembly for clearing bits in CSR with immediate without reading old value
+    pub fn csrci(&mut self, csr: Csr, uimm: u8) -> &mut Self {
+        self.csrrci(super::reg::X0, csr, uimm)
     }
 
     /// Generate add immediate instruction

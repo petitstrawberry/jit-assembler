@@ -94,9 +94,18 @@ fn test_csr_instructions() {
     builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
     builder.csrrs(reg::X3, csr::MEPC, reg::X4);
     builder.csrrwi(reg::X5, csr::MTVEC, 0x10);
+    
+    // Test CSR pseudo-instructions
+    builder.csrr(reg::X6, csr::MHARTID);
+    builder.csrw(csr::MEPC, reg::X7);
+    builder.csrs(csr::MIE, reg::X8);
+    builder.csrc(csr::MIP, reg::X9);
+    builder.csrwi(csr::MTVEC, 0x20);
+    builder.csrsi(csr::MIE, 0x08);
+    builder.csrci(csr::MIP, 0x04);
 
     let instructions = builder.instructions();
-    assert_eq!(instructions.len(), 3);
+    assert_eq!(instructions.len(), 10);
     
     // Verify first instruction (csrrw x1, mstatus, x2)
     // The actual encoding value is 805376243 (0x30021073 in hex)
@@ -774,6 +783,42 @@ fn test_binary_correctness_csr() {
     builder.csrr(reg::X4, csr::MSTATUS);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x4, mstatus\n");
+    
+    // Test CSRW instruction (alias for csrrw with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrw(csr::MEPC, reg::X1);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrw mepc, x1\n");
+    
+    // Test CSRS instruction (alias for csrrs with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrs(csr::MIE, reg::X2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrs mie, x2\n");
+    
+    // Test CSRC instruction (alias for csrrc with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrc(csr::MIP, reg::X3);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrc mip, x3\n");
+    
+    // Test CSRWI instruction (alias for csrrwi with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrwi(csr::MTVEC, 0x8);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrwi mtvec, 0x8\n");
+    
+    // Test CSRSI instruction (alias for csrrsi with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrsi(csr::MIE, 0x4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrsi mie, 0x4\n");
+    
+    // Test CSRCI instruction (alias for csrrci with x0)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrci(csr::MIP, 0x2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "csrci mip, 0x2\n");
 }
 
 #[cfg(feature = "std")]
