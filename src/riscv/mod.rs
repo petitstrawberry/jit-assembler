@@ -14,4 +14,4 @@ mod tests;
 
 // Re-export commonly used items
 pub use instruction::{Register, Csr, Instruction, reg, csr};
-pub use builder::InstructionBuilder;
+pub use builder::Riscv64InstructionBuilder;

@@ -1,6 +1,6 @@
 /// Instruction builder interface for RISC-V assembly generation
 use super::instruction::*;
-use crate::common::InstructionBuilder as BuilderTrait;
+use crate::common::InstructionBuilder;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -8,11 +8,11 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 /// Instruction builder for generating RISC-V instructions
-pub struct InstructionBuilder {
+pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,
 }
 
-impl InstructionBuilder {
+impl Riscv64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
@@ -34,7 +34,7 @@ impl InstructionBuilder {
     }
 }
 
-impl BuilderTrait<Instruction> for InstructionBuilder {
+impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
@@ -52,9 +52,49 @@ impl BuilderTrait<Instruction> for InstructionBuilder {
     fn clear(&mut self) {
         self.instructions.clear();
     }
+    
+    /// Create a JIT-compiled function from the assembled instructions (std-only)
+    /// 
+    /// This method converts the assembled instructions into executable machine code
+    /// that can be called directly as a function. The generic type parameter `F`
+    /// specifies the function signature.
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because:
+    /// - It allocates executable memory
+    /// - It assumes the assembled code follows the correct ABI
+    /// - The caller must ensure the function signature matches the actual code
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust,no_run
+    /// use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+    /// use jit_assembler::common::InstructionBuilder;
+    /// 
+    /// let add_func = unsafe {
+    ///     Riscv64InstructionBuilder::new()
+    ///         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
+    ///         .ret()
+    ///         .function::<fn(u64, u64) -> u64>()
+    /// }.expect("Failed to create JIT function");
+    /// 
+    /// // Call the JIT function directly (only works on RISC-V hosts)
+    /// let result = add_func.call(10, 20); // Should return 30
+    /// ```
+    #[cfg(feature = "std")]
+    unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
+        // Convert instructions to bytes
+        let mut code = Vec::new();
+        for instr in &self.instructions {
+            code.extend_from_slice(&instr.bytes());
+        }
+
+        crate::common::jit::CallableJitFunction::<F>::new(&code)
+    }
 }
 
-impl InstructionBuilder {
+impl Riscv64InstructionBuilder {
     /// Generate CSR read-write instruction
     pub fn csrrw(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
         let instr = encode_csr_type(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);
@@ -317,44 +357,5 @@ impl InstructionBuilder {
     /// This is a common alias in RISC-V assembly for returning from a function
     pub fn ret(&mut self) -> &mut Self {
         self.jalr(super::reg::X0, super::reg::X1, 0)
-    }
-
-    /// Create a JIT-compiled function from the assembled instructions (std-only)
-    /// 
-    /// This method converts the assembled instructions into executable machine code
-    /// that can be called directly as a function. The generic type parameter `F`
-    /// specifies the function signature.
-    /// 
-    /// # Safety
-    /// 
-    /// This function is unsafe because:
-    /// - It allocates executable memory
-    /// - It assumes the assembled code follows the correct ABI
-    /// - The caller must ensure the function signature matches the actual code
-    /// 
-    /// # Examples
-    /// 
-    /// ```rust,no_run
-    /// use jit_assembler::riscv::{reg, InstructionBuilder};
-    /// 
-    /// let add_func = unsafe {
-    ///     InstructionBuilder::new()
-    ///         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
-    ///         .ret()
-    ///         .function::<fn(u64, u64) -> u64>()
-    /// }.expect("Failed to create JIT function");
-    /// 
-    /// // Call the JIT function directly (only works on RISC-V hosts)
-    /// let result = add_func.call(10, 20); // Should return 30
-    /// ```
-    #[cfg(feature = "std")]
-    pub unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
-        // Convert instructions to bytes
-        let mut code = Vec::new();
-        for instr in &self.instructions {
-            code.extend_from_slice(&instr.bytes());
-        }
-
-        crate::common::jit::CallableJitFunction::<F>::new(&code)
     }
 }

@@ -18,7 +18,7 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     /// Get the size of this instruction in bytes
     fn size(&self) -> usize;
 }
-
+    
 /// A register identifier for a target architecture
 pub trait Register: Copy + Clone + fmt::Debug {
     /// Get the register number/identifier
@@ -38,6 +38,22 @@ pub trait InstructionBuilder<I: Instruction> {
     
     /// Clear all instructions
     fn clear(&mut self);
+    
+    /// Create a JIT-compiled function from the assembled instructions (std-only)
+    /// 
+    /// This method converts the assembled instructions into executable machine code
+    /// that can be called directly as a function. The generic type parameter `F`
+    /// specifies the function signature.
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because:
+    /// - It allocates executable memory
+    /// - It assumes the assembled code follows the correct ABI
+    /// - The caller must ensure the function signature matches the actual code
+    /// 
+    #[cfg(feature = "std")]
+    unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
 }
 
 /// Architecture-specific encoding functions
@@ -112,34 +128,75 @@ pub mod jit {
         }
     }
 
-    // Implement direct function call for common function signatures
-    impl CallableJitFunction<fn() -> u64> {
-        pub fn call(&self) -> u64 {
-            let func: fn() -> u64 = unsafe { self.as_fn() };
+    /// Direct call methods based on function signature - the ultimate solution!
+    /// These override the generic call method with signature-specific versions
+    
+    impl<R> CallableJitFunction<fn() -> R> {
+        /// Call with no arguments - natural syntax: func.call()
+        pub fn call(&self) -> R {
+            let func: fn() -> R = unsafe { self.as_fn() };
             func()
         }
     }
 
-    impl CallableJitFunction<fn(u64) -> u64> {
-        pub fn call(&self, arg0: u64) -> u64 {
-            let func: fn(u64) -> u64 = unsafe { self.as_fn() };
-            func(arg0)
+    impl<A1, R> CallableJitFunction<fn(A1) -> R> {
+        /// Call with one argument - natural syntax: func.call(arg)
+        pub fn call(&self, arg1: A1) -> R {
+            let func: fn(A1) -> R = unsafe { self.as_fn() };
+            func(arg1)
         }
     }
 
-    impl CallableJitFunction<fn(u64, u64) -> u64> {
-        pub fn call(&self, arg0: u64, arg1: u64) -> u64 {
-            let func: fn(u64, u64) -> u64 = unsafe { self.as_fn() };
-            func(arg0, arg1)
+    impl<A1, A2, R> CallableJitFunction<fn(A1, A2) -> R> {
+        /// Call with two arguments - natural syntax: func.call(arg1, arg2)
+        pub fn call(&self, arg1: A1, arg2: A2) -> R {
+            let func: fn(A1, A2) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2)
         }
     }
 
-    impl CallableJitFunction<fn(u64, u64, u64) -> u64> {
-        pub fn call(&self, arg0: u64, arg1: u64, arg2: u64) -> u64 {
-            let func: fn(u64, u64, u64) -> u64 = unsafe { self.as_fn() };
-            func(arg0, arg1, arg2)
+    impl<A1, A2, A3, R> CallableJitFunction<fn(A1, A2, A3) -> R> {
+        /// Call with three arguments - natural syntax: func.call(arg1, arg2, arg3)
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3) -> R {
+            let func: fn(A1, A2, A3) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3)
         }
     }
+
+    impl<A1, A2, A3, A4, R> CallableJitFunction<fn(A1, A2, A3, A4) -> R> {
+        /// Call with four arguments - natural syntax: func.call(arg1, arg2, arg3, arg4)
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4) -> R {
+            let func: fn(A1, A2, A3, A4) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3, arg4)
+        }
+    }
+
+    impl<A1, A2, A3, A4, A5, R> CallableJitFunction<fn(A1, A2, A3, A4, A5) -> R> {
+        /// Call with five arguments
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5) -> R {
+            let func: fn(A1, A2, A3, A4, A5) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3, arg4, arg5)
+        }
+    }
+
+    impl<A1, A2, A3, A4, A5, A6, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6) -> R> {
+        /// Call with six arguments
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6) -> R {
+            let func: fn(A1, A2, A3, A4, A5, A6) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3, arg4, arg5, arg6)
+        }
+    }
+
+    impl<A1, A2, A3, A4, A5, A6, A7, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7) -> R> {
+        /// Call with seven arguments
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> R {
+            let func: fn(A1, A2, A3, A4, A5, A6, A7) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+        }
+    }
+
+    // Note: For void return functions, we don't generate them here 
+    // as they would need special handling with unit type ()
 
     /// Errors that can occur during JIT execution
     #[derive(Debug)]

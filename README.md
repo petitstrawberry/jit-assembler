@@ -156,7 +156,7 @@ let add_func = unsafe {
         .function::<fn(u64, u64) -> u64>()
 }.expect("Failed to create JIT function");
 
-// Call the JIT function directly (only works on RISC-V hosts)
+// Call the JIT function naturally - just like a regular function!
 let result = add_func.call(10, 20);
 assert_eq!(result, 30);
 
@@ -177,7 +177,7 @@ assert_eq!(result, 42);
 **Features**:
 - Type-safe function signatures
 - Automatic memory management with `jit-allocator2`
-- Support for various function signatures: `fn() -> u64`, `fn(u64) -> u64`, `fn(u64, u64) -> u64`, etc.
+- Natural function call syntax: `func.call()`, `func.call(arg)`, `func.call(arg1, arg2)`, etc. - just like regular functions!
 - Cross-platform executable memory allocation
 
 ## Contributing
