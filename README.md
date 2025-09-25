@@ -30,7 +30,7 @@ jit-assembler = "0.1"
 ### Basic Usage
 
 ```rust
-use jit_assembler::riscv::{reg, csr, InstructionBuilder};
+use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
 use jit_assembler::jit_asm;
 
 // Macro style (concise and assembly-like)
@@ -45,7 +45,7 @@ let instructions = jit_asm! {
 };
 
 // Method chaining style (recommended for programmatic use)
-let mut builder = InstructionBuilder::new();
+let mut builder = Riscv64InstructionBuilder::new();
 let instructions2 = builder
     .csrrw(reg::RA, csr::MSTATUS, reg::SP)   // CSR read-write using aliases
     .addi(reg::A0, reg::ZERO, 100)           // Add immediate with aliases
@@ -56,7 +56,7 @@ let instructions2 = builder
     .instructions();
 
 // Traditional style
-let mut builder3 = InstructionBuilder::new();
+let mut builder3 = Riscv64InstructionBuilder::new();
 builder3.csrrw(reg::RA, csr::MSTATUS, reg::SP);
 builder3.addi(reg::A0, reg::ZERO, 100);
 builder3.ret();
@@ -103,7 +103,7 @@ Support for additional architectures is planned:
 ### JIT Compiler Integration
 
 ```rust
-use jit_assembler::riscv::{reg, csr, InstructionBuilder};
+use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
 use jit_assembler::jit_asm;
 
 // Simple function generator with macro
@@ -125,7 +125,7 @@ fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
 
 // Builder pattern for complex logic
 fn generate_csr_routine() -> Vec<u8> {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     builder
         .csrr(reg::T0, csr::MSTATUS)         // Read current status into t0
@@ -146,11 +146,12 @@ fn generate_csr_routine() -> Vec<u8> {
 Create and execute functions directly at runtime:
 
 ```rust
-use jit_assembler::riscv::{reg, InstructionBuilder};
+use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
 
 // Create a JIT function that adds two numbers
 let add_func = unsafe {
-    InstructionBuilder::new()
+    Riscv64InstructionBuilder::new()
         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
         .ret()                          // Return result
         .function::<fn(u64, u64) -> u64>()
@@ -162,7 +163,7 @@ assert_eq!(result, 30);
 
 // Create a function that returns a constant
 let constant_func = unsafe {
-    InstructionBuilder::new()
+    Riscv64InstructionBuilder::new()
         .addi(reg::A0, reg::ZERO, 42)  // Load 42 into return register
         .ret()                         // Return
         .function::<fn() -> u64>()
