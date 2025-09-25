@@ -1162,4 +1162,57 @@ fn test_jit_function_chaining() {
     assert!(result.is_ok(), "Chained JIT function creation should succeed");
 }
 
+#[cfg(feature = "std")]
+#[test]
+fn test_natural_call_syntax() {
+    // Zero arguments - perfect natural syntax
+    let _func0 = unsafe {
+        InstructionBuilder::new()
+            .addi(reg::A0, reg::ZERO, 42)
+            .ret()
+            .function::<fn() -> u64>()
+    }.expect("Failed to create function");
+    
+    // Only execute on RISC-V to avoid SIGILL
+    #[cfg(target_arch = "riscv64")]
+    {
+        let _result0 = _func0.call();
+    }
+
+    // Four arguments - THE ORIGINAL PROBLEM IS SOLVED!
+    let _func4 = unsafe {
+        InstructionBuilder::new()
+            .add(reg::A0, reg::A0, reg::A1)    // a0 += a1
+            .add(reg::A0, reg::A0, reg::A2)    // a0 += a2  
+            .add(reg::A0, reg::A0, reg::A3)    // a0 += a3
+            .ret()
+            .function::<fn(u64, u64, u64, u64) -> u64>()
+    }.expect("Failed to create function");
+    
+    // Beautiful natural function call syntax! (Only execute on RISC-V)
+
+    // Eight arguments - ultimate power demonstration
+    let _func8 = unsafe {
+        InstructionBuilder::new()
+            .add(reg::A0, reg::A0, reg::A1)    // Sum all arguments
+            .add(reg::A0, reg::A0, reg::A2)
+            .add(reg::A0, reg::A0, reg::A3)
+            .add(reg::A0, reg::A0, reg::A4)
+            .add(reg::A0, reg::A0, reg::A5)
+            .add(reg::A0, reg::A0, reg::A6)
+            .add(reg::A0, reg::A0, reg::A7)
+            .ret()
+            .function::<fn(u64, u64, u64, u64, u64, u64, u64, u64) -> u64>()
+    }.expect("Failed to create function");
+    
+    #[cfg(target_arch = "riscv64")]
+    {
+        let r4 = _func4.call(10u64, 20u64, 30u64, 40u64);
+        let r8 = _func8.call(1u64, 2u64, 3u64, 4u64, 5u64, 6u64, 7u64, 8u64);
+        
+        assert_eq!(r4, 100);    // 10 + 20 + 30 + 40 = 100
+        assert_eq!(r8, 36);     // 1+2+3+4+5+6+7+8 = 36
+    }
+}
+
 } // end of tests module
