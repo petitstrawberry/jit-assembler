@@ -69,10 +69,11 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     /// # Examples
     /// 
     /// ```rust,no_run
-    /// use jit_assembler::riscv::{reg, InstructionBuilder};
+    /// use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+    /// use jit_assembler::common::InstructionBuilder;
     /// 
     /// let add_func = unsafe {
-    ///     InstructionBuilder::new()
+    ///     Riscv64InstructionBuilder::new()
     ///         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
     ///         .ret()
     ///         .function::<fn(u64, u64) -> u64>()

@@ -21,10 +21,11 @@
 //! ## Usage
 //!
 //! ```rust
-//! use jit_assembler::riscv::{reg, csr, InstructionBuilder};
+//! use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
+//! use jit_assembler::common::InstructionBuilder;
 //!
 //! // Method chaining style (recommended)
-//! let mut builder = InstructionBuilder::new();
+//! let mut builder = Riscv64InstructionBuilder::new();
 //! let instructions = builder
 //!     .csrrw(reg::RA, csr::MSTATUS, reg::SP)
 //!     .addi(reg::A0, reg::ZERO, 100)
@@ -33,7 +34,7 @@
 //!     .instructions();
 //!
 //! // Traditional style
-//! let mut builder2 = InstructionBuilder::new();
+//! let mut builder2 = Riscv64InstructionBuilder::new();
 //! builder2.csrrw(reg::RA, csr::MSTATUS, reg::SP);
 //! builder2.addi(reg::A0, reg::ZERO, 100);
 //! builder2.ret();
@@ -49,11 +50,12 @@
 //! ## JIT Execution (std-only)
 //!
 //! ```rust,no_run
-//! use jit_assembler::riscv::{reg, InstructionBuilder};
-//!
+//! use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+//! use jit_assembler::common::InstructionBuilder;
+//! 
 //! // Create a JIT function that adds two numbers
 //! let add_func = unsafe {
-//!     InstructionBuilder::new()
+//!     Riscv64InstructionBuilder::new()
 //!         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
 //!         .ret()                          // Return result
 //!         .function::<fn(u64, u64) -> u64>()
