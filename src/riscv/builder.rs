@@ -181,12 +181,7 @@ impl Riscv64InstructionBuilder {
         self.csrrci(super::reg::X0, csr, uimm)
     }
 
-    /// Generate add immediate instruction
-    pub fn addi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, imm);
-        self.push(instr);
-        self
-    }
+    // ALU instructions
 
     /// Generate add instruction
     pub fn add(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
@@ -194,13 +189,13 @@ impl Riscv64InstructionBuilder {
         self.push(instr);
         self
     }
-
-    /// Generate subtract immediate instruction
-    pub fn subi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, -imm);
+    /// Generate add immediate instruction
+    pub fn addi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, imm);
         self.push(instr);
         self
     }
+
 
     /// Generate subtract instruction
     pub fn sub(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
@@ -209,9 +204,24 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+
+    /// Generate subtract immediate instruction
+    pub fn subi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, -imm);
+        self.push(instr);
+        self
+    }
+
     /// Generate XOR instruction
     pub fn xor(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
         let instr = encode_r_type(opcodes::OP, rd, alu_funct3::XOR, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
+    /// Generate XOR immediate instruction
+    pub fn xori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::XOR, rs1, imm);
         self.push(instr);
         self
     }
@@ -230,9 +240,9 @@ impl Riscv64InstructionBuilder {
         self
     }
 
-    /// Generate XOR immediate instruction
-    pub fn xori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::XOR, rs1, imm);
+    /// Generate Set Less Than instruction
+    pub fn slt(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLT, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
@@ -244,6 +254,13 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    /// Generate Set Less Than Unsigned instruction
+    pub fn sltu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLTU, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
     /// Generate Set Less Than immediate Unsigned instruction
     pub fn sltiu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
         let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLTU, rs1, imm);
@@ -251,16 +268,44 @@ impl Riscv64InstructionBuilder {
         self
     }
 
-    /// Generate Set Less Than instruction
-    pub fn slt(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLT, rs1, rs2, 0x0);
+    /// Generate SLL (Shift Left Logical) instruction
+    pub fn sll(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLL, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
-    /// Generate Set Less Than Unsigned instruction
-    pub fn sltu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLTU, rs1, rs2, 0x0);
+    /// Generate SRL (Shift Right Logical) instruction
+    pub fn srl(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
+    /// Generate SRA (Shift Right Arithmetic) instruction
+    pub fn sra(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
+        self.push(instr);
+        self
+    }
+
+    /// Generate SLLI (Shift Left Logical Immediate) instruction
+    pub fn slli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
+        self.push(instr);
+        self
+    }
+
+    /// Generate SRLI (Shift Right Logical Immediate) instruction
+    pub fn srli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
+        self.push(instr);
+        self
+    }
+
+    /// Generate SRAI (Shift Right Arithmetic Immediate) instruction
+    pub fn srai(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, (shamt as i16) | 0x400);
         self.push(instr);
         self
     }
@@ -279,61 +324,7 @@ impl Riscv64InstructionBuilder {
         self
     }
 
-    /// Generate JAL (Jump and Link) instruction
-    pub fn jal(&mut self, rd: Register, imm: i32) -> &mut Self {
-        let instr = encode_j_type(opcodes::JAL, rd, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate JALR (Jump and Link Register) instruction
-    pub fn jalr(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::JALR, rd, 0x0, rs1, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BEQ (Branch if Equal) instruction
-    pub fn beq(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BEQ, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BNE (Branch if Not Equal) instruction
-    pub fn bne(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BNE, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BLT (Branch if Less Than) instruction
-    pub fn blt(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLT, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BGE (Branch if Greater or Equal) instruction
-    pub fn bge(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGE, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BLTU (Branch if Less Than Unsigned) instruction
-    pub fn bltu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLTU, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
-
-    /// Generate BGEU (Branch if Greater or Equal Unsigned) instruction
-    pub fn bgeu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGEU, rs1, rs2, imm);
-        self.push(instr);
-        self
-    }
+    // Load/Store instructions
 
     /// Generate LD (Load Doubleword) instruction
     pub fn ld(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
@@ -427,48 +418,6 @@ impl Riscv64InstructionBuilder {
         self
     }
 
-    /// Generate SLL (Shift Left Logical) instruction
-    pub fn sll(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLL, rs1, rs2, 0x0);
-        self.push(instr);
-        self
-    }
-
-    /// Generate SRL (Shift Right Logical) instruction
-    pub fn srl(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x0);
-        self.push(instr);
-        self
-    }
-
-    /// Generate SRA (Shift Right Arithmetic) instruction
-    pub fn sra(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
-        self.push(instr);
-        self
-    }
-
-    /// Generate SLLI (Shift Left Logical Immediate) instruction
-    pub fn slli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
-        self.push(instr);
-        self
-    }
-
-    /// Generate SRLI (Shift Right Logical Immediate) instruction
-    pub fn srli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
-        self.push(instr);
-        self
-    }
-
-    /// Generate SRAI (Shift Right Arithmetic Immediate) instruction
-    pub fn srai(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, (shamt as i16) | 0x400);
-        self.push(instr);
-        self
-    }
-
     /// Generate LUI (Load Upper Immediate) instruction
     pub fn lui(&mut self, rd: Register, imm: u32) -> &mut Self {
         let instr = encode_u_type(opcodes::LUI, rd, imm);
@@ -479,6 +428,64 @@ impl Riscv64InstructionBuilder {
     /// Generate AUIPC (Add Upper Immediate to PC) instruction
     pub fn auipc(&mut self, rd: Register, imm: u32) -> &mut Self {
         let instr = encode_u_type(opcodes::AUIPC, rd, imm);
+        self.push(instr);
+        self
+    }
+
+    // Control flow instructions
+
+    /// Generate JAL (Jump and Link) instruction
+    pub fn jal(&mut self, rd: Register, imm: i32) -> &mut Self {
+        let instr = encode_j_type(opcodes::JAL, rd, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate JALR (Jump and Link Register) instruction
+    pub fn jalr(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::JALR, rd, 0x0, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BEQ (Branch if Equal) instruction
+    pub fn beq(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BEQ, rs1, rs2, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BNE (Branch if Not Equal) instruction
+    pub fn bne(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BNE, rs1, rs2, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BLT (Branch if Less Than) instruction
+    pub fn blt(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLT, rs1, rs2, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BGE (Branch if Greater or Equal) instruction
+    pub fn bge(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGE, rs1, rs2, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BLTU (Branch if Less Than Unsigned) instruction
+    pub fn bltu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLTU, rs1, rs2, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate BGEU (Branch if Greater or Equal Unsigned) instruction
+    pub fn bgeu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
+        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGEU, rs1, rs2, imm);
         self.push(instr);
         self
     }
