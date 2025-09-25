@@ -1,4 +1,4 @@
-use crate::riscv::{reg, csr, Instruction, InstructionBuilder};
+use crate::riscv::{reg, csr, Instruction, Riscv64InstructionBuilder};
 
 #[cfg(feature = "std")]
 use std::vec;
@@ -88,7 +88,7 @@ fn compare_instruction(jit_instr: Instruction, gnu_assembly: &str) {
 
 #[test]
 fn test_csr_instructions() {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     // Test CSR instructions
     builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
@@ -106,7 +106,7 @@ fn test_csr_instructions() {
 
 #[test]
 fn test_comprehensive_csr_support() {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     // Test all M-mode CSRs
     builder.csrr(reg::X1, csr::MSTATUS);    // 0x300
@@ -141,7 +141,7 @@ fn test_comprehensive_csr_support() {
 
 #[test]
 fn test_csr_write_operations() {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     // Test write operations on both M-mode and S-mode CSRs
     builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
@@ -225,7 +225,7 @@ fn test_csr_with_macro() {
 
 #[test]
 fn test_csr_encoding_verification() {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     // Test specific CSR encodings
     builder.csrr(reg::X1, csr::SSTATUS);   // Should encode 0x100 CSR address
@@ -252,7 +252,7 @@ fn test_csr_encoding_verification() {
 #[test]
 fn test_issue_requested_csrs() {
     // Test all CSRs specifically mentioned in the GitHub issue
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     // M-mode CSRs from issue: mscratch, mhartid, misa, mstatus, mie, mip, mtvec, mcause, mepc, mtval
     builder.csrr(reg::X1, csr::MSCRATCH);
@@ -285,7 +285,7 @@ fn test_issue_requested_csrs() {
     }
     
     // Test that we can also perform write operations on these CSRs
-    let mut builder2 = InstructionBuilder::new();
+    let mut builder2 = Riscv64InstructionBuilder::new();
     builder2.csrrw(reg::A0, csr::MSCRATCH, reg::A1);
     builder2.csrrw(reg::A2, csr::SSCRATCH, reg::A3);
     builder2.csrrsi(reg::A4, csr::MSTATUS, 0x08);
@@ -301,7 +301,7 @@ fn test_issue_requested_csrs() {
 
 #[test]
 fn test_arithmetic_instructions() {
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     builder.addi(reg::X1, reg::X2, 100);
     builder.add(reg::X3, reg::X1, reg::X2);
@@ -339,7 +339,7 @@ fn test_compressed_instruction() {
 #[test]
 fn test_method_chaining() {
     // Test that builder methods can be chained
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     
     builder
         .csrrw(reg::X1, csr::MSTATUS, reg::X2)
@@ -351,7 +351,7 @@ fn test_method_chaining() {
     assert_eq!(instructions.len(), 4);
     
     // Test fluent interface pattern
-    let mut builder2 = InstructionBuilder::new();
+    let mut builder2 = Riscv64InstructionBuilder::new();
     let instructions2 = builder2
         .csrrs(reg::X10, csr::MEPC, reg::X0) // csrr equivalent
         .addi(reg::X11, reg::X10, 42)
@@ -401,7 +401,7 @@ fn test_register_aliases() {
 #[test]
 fn test_register_aliases_usage() {
     // Test using aliases in actual instructions
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder
         .addi(reg::A0, reg::ZERO, 42)    // Load 42 into a0
         .add(reg::A1, reg::A0, reg::SP)  // Add a0 and sp, store in a1
@@ -411,7 +411,7 @@ fn test_register_aliases_usage() {
     assert_eq!(instructions.len(), 3);
     
     // Verify instructions are equivalent to using x registers
-    let mut builder2 = InstructionBuilder::new();
+    let mut builder2 = Riscv64InstructionBuilder::new();
     builder2
         .addi(reg::X10, reg::X0, 42)    // a0 = x10, zero = x0
         .add(reg::X11, reg::X10, reg::X2)  // a1 = x11, sp = x2
@@ -424,14 +424,14 @@ fn test_register_aliases_usage() {
 #[test]
 fn test_ret_instruction() {
     // Test ret instruction (should be equivalent to jalr x0, x1, 0)
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.ret();
     
     let instructions = builder.instructions();
     assert_eq!(instructions.len(), 1);
     
     // Compare with explicit jalr x0, x1, 0
-    let mut builder2 = InstructionBuilder::new();
+    let mut builder2 = Riscv64InstructionBuilder::new();
     builder2.jalr(reg::X0, reg::X1, 0);
     
     let instructions2 = builder2.instructions();
@@ -441,14 +441,14 @@ fn test_ret_instruction() {
 #[test]
 fn test_ret_instruction_with_aliases() {
     // Test ret using register aliases
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.ret();
     
     let instructions = builder.instructions();
     assert_eq!(instructions.len(), 1);
     
     // Compare with explicit jalr using aliases
-    let mut builder2 = InstructionBuilder::new();
+    let mut builder2 = Riscv64InstructionBuilder::new();
     builder2.jalr(reg::ZERO, reg::RA, 0);
     
     let instructions2 = builder2.instructions();
@@ -468,7 +468,7 @@ fn test_aliases_with_macro() {
     assert_eq!(instructions.len(), 4);
     
     // Verify macro produces same results as builder with aliases
-    let builder_instructions = InstructionBuilder::new()
+    let builder_instructions = Riscv64InstructionBuilder::new()
         .addi(reg::A0, reg::ZERO, 42)
         .add(reg::A1, reg::A0, reg::SP)
         .sub(reg::T0, reg::A1, reg::A0)
@@ -530,7 +530,7 @@ fn test_macro_chaining() {
     assert_eq!(instructions.len(), 3);
     
     // Verify macro produces same results as builder
-    let builder_instructions = InstructionBuilder::new()
+    let builder_instructions = Riscv64InstructionBuilder::new()
         .addi(reg::X1, reg::X0, 10)
         .add(reg::X2, reg::X1, reg::X0)
         .csrrw(reg::X3, csr::MSTATUS, reg::X2)
@@ -555,7 +555,7 @@ fn test_macro_comprehensive() {
     assert_eq!(instructions.len(), 6);
     
     // Compare with builder version and verify comprehensive functionality
-    let builder_instructions = InstructionBuilder::new()
+    let builder_instructions = Riscv64InstructionBuilder::new()
         .lui(reg::X1, 0x12345)
         .addi(reg::X2, reg::X1, 100)
         .add(reg::X3, reg::X1, reg::X2)
@@ -578,19 +578,19 @@ fn test_macro_comprehensive() {
 #[test]
 fn test_binary_correctness_arithmetic() {
     // Test ADDI instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.addi(reg::X1, reg::X0, 100);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "addi x1, x0, 100\n");
     
     // Test ADD instruction - use fresh builder
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.add(reg::X3, reg::X1, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "add x3, x1, x2\n");
     
     // Test SUB instruction - use fresh builder  
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sub(reg::X4, reg::X3, reg::X1);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sub x4, x3, x1\n");
@@ -611,7 +611,7 @@ fn test_binary_correctness_immediate_arithmetic() {
     ];
     
     for (imm, assembly) in test_cases {
-        let mut builder = InstructionBuilder::new();
+        let mut builder = Riscv64InstructionBuilder::new();
         builder.addi(reg::X1, reg::X0, imm);
         let instructions = builder.instructions();
         compare_instruction(instructions[0], assembly);
@@ -622,19 +622,19 @@ fn test_binary_correctness_immediate_arithmetic() {
 #[test]  
 fn test_binary_correctness_logical() {
     // Test XOR
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.xor(reg::X5, reg::X1, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "xor x5, x1, x2\n");
     
     // Test OR
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.or(reg::X6, reg::X3, reg::X4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "or x6, x3, x4\n");
     
     // Test AND
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.and(reg::X7, reg::X5, reg::X6);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "and x7, x5, x6\n");
@@ -644,37 +644,37 @@ fn test_binary_correctness_logical() {
 #[test]
 fn test_binary_correctness_shifts() {
     // Test shift left logical
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sll(reg::X8, reg::X1, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sll x8, x1, x2\n");
     
     // Test shift right logical
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.srl(reg::X9, reg::X3, reg::X4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "srl x9, x3, x4\n");
     
     // Test shift right arithmetic
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sra(reg::X10, reg::X5, reg::X6);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sra x10, x5, x6\n");
     
     // Test shift left logical immediate
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.slli(reg::X11, reg::X1, 5);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "slli x11, x1, 5\n");
     
     // Test shift right logical immediate
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.srli(reg::X12, reg::X2, 10);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "srli x12, x2, 10\n");
     
     // Test shift right arithmetic immediate
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.srai(reg::X13, reg::X3, 15);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "srai x13, x3, 15\n");
@@ -684,13 +684,13 @@ fn test_binary_correctness_shifts() {
 #[test]
 fn test_binary_correctness_upper_immediate() {
     // Test LUI instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x12345);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "lui x1, 0x12345\n");
     
     // Test AUIPC instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.auipc(reg::X2, 0x6789A);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "auipc x2, 0x6789A\n");
@@ -700,25 +700,25 @@ fn test_binary_correctness_upper_immediate() {
 #[test]
 fn test_binary_correctness_csr() {
     // Test CSRRW instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrw(reg::X1, csr::MSTATUS, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrw x1, mstatus, x2\n");
     
     // Test CSRRS instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrs(reg::X3, csr::MEPC, reg::X4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrs x3, mepc, x4\n");
     
     // Test CSRRWI instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrwi(reg::X5, csr::MTVEC, 0x10);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrwi x5, mtvec, 0x10\n");
     
     // Test CSRR instruction (alias for csrrs with x0)
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X4, csr::MSTATUS);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x4, mstatus\n");
@@ -728,42 +728,42 @@ fn test_binary_correctness_csr() {
 #[test]
 fn test_binary_correctness_s_mode_csrs() {
     // Test S-mode CSR read operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X1, csr::SSTATUS);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x1, sstatus\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X2, csr::SIE);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x2, sie\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X3, csr::STVEC);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x3, stvec\n");
     
-    let mut builder = InstructionBuilder::new(); 
+    let mut builder = Riscv64InstructionBuilder::new(); 
     builder.csrr(reg::X4, csr::SSCRATCH);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x4, sscratch\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X5, csr::SEPC);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x5, sepc\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X6, csr::SCAUSE);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x6, scause\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X7, csr::STVAL);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x7, stval\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X8, csr::SIP);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrr x8, sip\n");
@@ -773,33 +773,33 @@ fn test_binary_correctness_s_mode_csrs() {
 #[test]
 fn test_binary_correctness_s_mode_csr_write_operations() {
     // Test S-mode CSR write operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrw(reg::X1, csr::SSTATUS, reg::X2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrw x1, sstatus, x2\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrs(reg::X3, csr::SIE, reg::X4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrs x3, sie, x4\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrc(reg::X5, csr::STVEC, reg::X6);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrc x5, stvec, x6\n");
     
     // Test immediate variants
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrwi(reg::X7, csr::SSCRATCH, 0x1f);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrwi x7, sscratch, 0x1f\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrsi(reg::X8, csr::SEPC, 0x10);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrsi x8, sepc, 0x10\n");
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrrci(reg::X9, csr::SIP, 0x08);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrci x9, sip, 0x08\n");
@@ -809,37 +809,37 @@ fn test_binary_correctness_s_mode_csr_write_operations() {
 #[test]
 fn test_binary_correctness_branches() {
     // Test BEQ instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.beq(reg::X1, reg::X2, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "beq x1, x2, .\n");
     
     // Test BNE instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.bne(reg::X3, reg::X4, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "bne x3, x4, .\n");
     
     // Test BLT instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.blt(reg::X5, reg::X6, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "blt x5, x6, .\n");
     
     // Test BGE instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.bge(reg::X7, reg::X8, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "bge x7, x8, .\n");
     
     // Test BLTU instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.bltu(reg::X9, reg::X10, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "bltu x9, x10, .\n");
     
     // Test BGEU instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.bgeu(reg::X11, reg::X12, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "bgeu x11, x12, .\n");
@@ -849,13 +849,13 @@ fn test_binary_correctness_branches() {
 #[test]
 fn test_binary_correctness_jumps() {
     // Test JAL instruction with zero offset
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.jal(reg::X1, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "jal x1, .\n");
     
     // Test JALR instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.jalr(reg::X0, reg::X1, 0);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "jalr x0, x1, 0\n");
@@ -865,49 +865,49 @@ fn test_binary_correctness_jumps() {
 #[test]
 fn test_binary_correctness_memory() {
     // Test LD instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.ld(reg::X1, reg::X2, 8);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "ld x1, 8(x2)\n");
     
     // Test LW instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lw(reg::X3, reg::X4, 4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "lw x3, 4(x4)\n");
     
     // Test LH instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lh(reg::X5, reg::X6, 2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "lh x5, 2(x6)\n");
     
     // Test LB instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lb(reg::X7, reg::X8, 1);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "lb x7, 1(x8)\n");
     
     // Test SD instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sd(reg::X9, reg::X10, 8);
     let instructions = builder.instructions(); 
     compare_instruction(instructions[0], "sd x10, 8(x9)\n");
     
     // Test SW instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sw(reg::X11, reg::X12, 4);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sw x12, 4(x11)\n");
     
     // Test SH instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sh(reg::X13, reg::X14, 2);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sh x14, 2(x13)\n");
     
     // Test SB instruction
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.sb(reg::X15, reg::X16, 1);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "sb x16, 1(x15)\n");
@@ -941,7 +941,7 @@ fn compare_instructions(jit_instrs: &[Instruction], gnu_assembly: &str) {
 #[test]
 fn test_binary_correctness_multiline_arithmetic() {
     // Test a sequence of arithmetic operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.addi(reg::X1, reg::X0, 10);
     builder.addi(reg::X2, reg::X0, 20);
     builder.add(reg::X3, reg::X1, reg::X2);
@@ -956,7 +956,7 @@ fn test_binary_correctness_multiline_arithmetic() {
 #[test]
 fn test_binary_correctness_multiline_logic_shifts() {
     // Test a sequence of logical and shift operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x12345);
     builder.addi(reg::X2, reg::X1, 0x678);
     builder.xor(reg::X3, reg::X1, reg::X2);
@@ -972,7 +972,7 @@ fn test_binary_correctness_multiline_logic_shifts() {
 #[test]
 fn test_binary_correctness_multiline_csr_operations() {
     // Test a sequence of CSR operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X1, csr::MSTATUS);
     builder.addi(reg::X2, reg::X1, 1);
     builder.csrrw(reg::X3, csr::MSTATUS, reg::X2);
@@ -987,7 +987,7 @@ fn test_binary_correctness_multiline_csr_operations() {
 #[test]
 fn test_binary_correctness_multiline_mixed_mode_csr_operations() {
     // Test a sequence mixing M-mode and S-mode CSR operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X1, csr::MSTATUS);     // M-mode
     builder.csrr(reg::X2, csr::SSTATUS);     // S-mode
     builder.csrrw(reg::X3, csr::MTVEC, reg::X1);     // M-mode write
@@ -1004,7 +1004,7 @@ fn test_binary_correctness_multiline_mixed_mode_csr_operations() {
 #[test]
 fn test_binary_correctness_multiline_s_mode_supervisor_context_switch() {
     // Test S-mode context switch sequence
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.csrr(reg::X1, csr::SSTATUS);     // Read supervisor status
     builder.csrr(reg::X2, csr::SEPC);        // Read supervisor exception PC
     builder.csrr(reg::X3, csr::SCAUSE);      // Read supervisor cause
@@ -1021,7 +1021,7 @@ fn test_binary_correctness_multiline_s_mode_supervisor_context_switch() {
 #[test]
 fn test_binary_correctness_multiline_memory_operations() {
     // Test a sequence of memory operations
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x10000);
     builder.addi(reg::X2, reg::X0, 42);
     builder.sw(reg::X1, reg::X2, 0);
@@ -1038,7 +1038,7 @@ fn test_binary_correctness_multiline_memory_operations() {
 #[test]
 fn test_binary_correctness_multiline_control_flow() {
     // Test a sequence with branches and jumps (using zero offsets for simplicity)
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.addi(reg::X1, reg::X0, 5);
     builder.addi(reg::X2, reg::X0, 10);
     builder.beq(reg::X1, reg::X2, 0);  // Branch to self (zero offset)
@@ -1054,7 +1054,7 @@ fn test_binary_correctness_multiline_control_flow() {
 #[test]
 fn test_binary_correctness_multiline_comprehensive() {
     // Test a comprehensive sequence mixing different instruction types
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x12345);          // Upper immediate
     builder.addi(reg::X1, reg::X1, 0x678);  // Immediate arithmetic
     builder.add(reg::X2, reg::X1, reg::X0);  // Register arithmetic
@@ -1082,7 +1082,7 @@ fn test_binary_correctness_multiline_macro_comparison() {
         xor(reg::X5, reg::X3, reg::X4);
     };
     
-    let mut builder = InstructionBuilder::new();
+    let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x12345);
     builder.addi(reg::X2, reg::X1, 100);
     builder.add(reg::X3, reg::X1, reg::X2);
@@ -1108,7 +1108,7 @@ fn test_binary_correctness_multiline_macro_comparison() {
 fn test_jit_basic_function_creation() {
     // Create a simple function that returns 42
     let jit_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .addi(reg::A0, reg::ZERO, 42)  // Load 42 into a0 (return value)
             .ret()                         // Return
             .function::<fn() -> u64>()
@@ -1122,7 +1122,7 @@ fn test_jit_basic_function_creation() {
 fn test_jit_add_function() {
     // Create a function that adds two numbers (a0 + a1 -> a0)
     let jit_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)  // Add a0 + a1, result in a0
             .ret()                           // Return
             .function::<fn(u64, u64) -> u64>()
@@ -1136,7 +1136,7 @@ fn test_jit_add_function() {
 fn test_jit_constant_function() {
     // Test that we can create a function that returns a constant
     let jit_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .lui(reg::A0, 0x12345)          // Load upper immediate 
             .addi(reg::A0, reg::A0, 0x678)  // Add lower bits
             .ret()                          // Return
@@ -1151,7 +1151,7 @@ fn test_jit_constant_function() {
 fn test_jit_function_chaining() {
     // Test method chaining with JIT function creation
     let result = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .addi(reg::A0, reg::ZERO, 10)
             .addi(reg::A1, reg::ZERO, 20)
             .add(reg::A0, reg::A0, reg::A1)
@@ -1167,7 +1167,7 @@ fn test_jit_function_chaining() {
 fn test_natural_call_syntax() {
     // Zero arguments - perfect natural syntax
     let _func0 = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .addi(reg::A0, reg::ZERO, 42)
             .ret()
             .function::<fn() -> u64>()
@@ -1181,7 +1181,7 @@ fn test_natural_call_syntax() {
 
     // Four arguments - THE ORIGINAL PROBLEM IS SOLVED!
     let _func4 = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)    // a0 += a1
             .add(reg::A0, reg::A0, reg::A2)    // a0 += a2  
             .add(reg::A0, reg::A0, reg::A3)    // a0 += a3
@@ -1193,7 +1193,7 @@ fn test_natural_call_syntax() {
 
     // Eight arguments - ultimate power demonstration
     let _func8 = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)    // Sum all arguments
             .add(reg::A0, reg::A0, reg::A2)
             .add(reg::A0, reg::A0, reg::A3)

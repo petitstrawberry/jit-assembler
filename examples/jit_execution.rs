@@ -7,7 +7,8 @@
 //! On other architectures, the functions will be created successfully
 //! but calling them will likely crash.
 
-use jit_assembler::riscv::{reg, csr, InstructionBuilder};
+use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
 
 fn main() {
     println!("JIT Assembler - JIT Execution Example");
@@ -16,7 +17,7 @@ fn main() {
     // Example 1: Constant function
     println!("\n1. Creating a function that returns 42...");
     let constant_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .addi(reg::A0, reg::ZERO, 42)  // Load 42 into a0 (return value)
             .ret()                         // Return
             .function::<fn() -> u64>()
@@ -39,7 +40,7 @@ fn main() {
     // Example 2: Addition function
     println!("\n2. Creating a function that adds two numbers...");
     let add_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)  // Add a0 + a1, result in a0
             .ret()                           // Return
             .function::<fn(u64, u64) -> u64>()
@@ -61,7 +62,7 @@ fn main() {
     // Example 3: More complex function with immediate values
     println!("\n3. Creating a function that computes (x + 100) * 2...");
     let complex_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .addi(reg::A0, reg::A0, 100)    // x + 100
             .slli(reg::A0, reg::A0, 1)      // << 1 (multiply by 2)
             .ret()                          // Return
@@ -84,7 +85,7 @@ fn main() {
     // Example 4: CSR access function (more advanced)
     println!("\n4. Creating a function that reads MEPC CSR...");
     let csr_func = unsafe {
-        InstructionBuilder::new()
+        Riscv64InstructionBuilder::new()
             .csrr(reg::A0, csr::MEPC)       // Read MEPC into a0
             .ret()                          // Return
             .function::<fn() -> u64>()

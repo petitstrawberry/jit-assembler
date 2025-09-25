@@ -1,6 +1,6 @@
 /// Instruction builder interface for RISC-V assembly generation
 use super::instruction::*;
-use crate::common::InstructionBuilder as BuilderTrait;
+use crate::common::InstructionBuilder;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -8,11 +8,11 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 /// Instruction builder for generating RISC-V instructions
-pub struct InstructionBuilder {
+pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,
 }
 
-impl InstructionBuilder {
+impl Riscv64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
@@ -34,7 +34,7 @@ impl InstructionBuilder {
     }
 }
 
-impl BuilderTrait<Instruction> for InstructionBuilder {
+impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
@@ -93,7 +93,7 @@ impl BuilderTrait<Instruction> for InstructionBuilder {
     }
 }
 
-impl InstructionBuilder {
+impl Riscv64InstructionBuilder {
     /// Generate CSR read-write instruction
     pub fn csrrw(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
         let instr = encode_csr_type(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);

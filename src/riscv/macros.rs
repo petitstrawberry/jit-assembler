@@ -21,7 +21,7 @@
 #[macro_export]
 macro_rules! jit_asm {
     ($($method:ident($($args:expr),*);)*) => {{
-        $crate::jit_asm_generic!($crate::riscv::InstructionBuilder, $($method($($args),*);)*)
+        $crate::jit_asm_generic!($crate::riscv::Riscv64InstructionBuilder, $($method($($args),*);)*)
     }};
 }
 
