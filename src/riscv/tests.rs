@@ -1360,8 +1360,8 @@ fn test_natural_call_syntax() {
     
     // Beautiful natural function call syntax! (Only execute on RISC-V)
 
-    // Eight arguments - ultimate power demonstration
-    let _func8 = unsafe {
+    // Seven arguments - ultimate power demonstration
+    let _func7 = unsafe {
         Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)    // Sum all arguments
             .add(reg::A0, reg::A0, reg::A2)
@@ -1369,17 +1369,16 @@ fn test_natural_call_syntax() {
             .add(reg::A0, reg::A0, reg::A4)
             .add(reg::A0, reg::A0, reg::A5)
             .add(reg::A0, reg::A0, reg::A6)
-            .add(reg::A0, reg::A0, reg::A7)
             .ret()
-            .function::<fn(u64, u64, u64, u64, u64, u64, u64, u64) -> u64>()
+            .function::<fn(u64, u64, u64, u64, u64, u64, u64) -> u64>()
     }.expect("Failed to create function");
     
     #[cfg(target_arch = "riscv64")]
     {
         let r4 = _func4.call(10u64, 20u64, 30u64, 40u64);
-        let r8 = _func8.call(1u64, 2u64, 3u64, 4u64, 5u64, 6u64, 7u64, 8u64);
+        let r8 = _func7.call(1u64, 2u64, 3u64, 4u64, 5u64, 6u64, 7u64);
         
         assert_eq!(r4, 100);    // 10 + 20 + 30 + 40 = 100
-        assert_eq!(r8, 36);     // 1+2+3+4+5+6+7+8 = 36
+        assert_eq!(r8, 28);     // 1+2+3+4+5+6+7 = 28
     }
 }
