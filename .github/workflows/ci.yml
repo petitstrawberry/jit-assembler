@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Multi-Architecture CI
 
 on:
   push:
@@ -7,10 +7,10 @@ on:
     branches: [ "develop" ]
 
 jobs:
-
-  test:
-
+  # X86-64 tests
+  test-x86:
     runs-on: ubuntu-latest
+    name: Test on x86-64
 
     steps:
     - uses: actions/checkout@v4
@@ -46,3 +46,61 @@ jobs:
     - name: Test JIT Assembler
       run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test
       timeout-minutes: 5
+
+  # RISC-V64 tests
+  test-riscv64:
+    runs-on: ubuntu-latest
+    name: Test on RISC-V64
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    # Set up QEMU for RISC-V64 emulation
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: riscv64
+        
+    # Set up Docker Buildx for multi-platform builds
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Generate Docker cache key for RISC-V64
+    - name: Generate RISC-V64 Docker cache key
+      id: docker-cache-key-riscv64
+      run: echo "key=docker-cache-riscv64-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Cache Docker image for RISC-V64
+    - name: Cache RISC-V64 Docker image
+      id: docker-cache-riscv64
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image-riscv64
+        key: ${{ steps.docker-cache-key-riscv64.outputs.key }}
+
+    # Build RISC-V64 Docker image (only if not cached)
+    - name: Build RISC-V64 Docker image
+      if: steps.docker-cache-riscv64.outputs.cache-hit != 'true'
+      run: |
+        docker buildx build \
+          --platform linux/riscv64 \
+          --file Dockerfile \
+          --tag jit-assembler-riscv64 \
+          --load \
+          .
+        docker save jit-assembler-riscv64 > /tmp/docker-image-riscv64
+
+    # Load cached RISC-V64 Docker image
+    - name: Load cached RISC-V64 Docker image
+      if: steps.docker-cache-riscv64.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image-riscv64
+
+    # Run tests on RISC-V64
+    - name: Test JIT Assembler on RISC-V64
+      run: |
+        docker run --rm \
+          --platform linux/riscv64 \
+          -v $PWD:/workspaces/jit-assembler \
+          jit-assembler-riscv64 \
+          bash -c "echo 'Architecture: \$(uname -m)' && cargo build --verbose && cargo test --verbose"
+      timeout-minutes: 20
