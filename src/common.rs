@@ -17,6 +17,9 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     
     /// Get the size of this instruction in bytes
     fn size(&self) -> usize;
+    
+    #[cfg(feature = "std")]
+    unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
 }
 
 /// A register identifier for a target architecture
