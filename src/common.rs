@@ -112,99 +112,6 @@ pub mod jit {
         }
     }
 
-
-
-
-
-
-
-    /// Generic trait for callable functions - this is the key to generic solution!
-    pub trait CallableFunction<Args, Return> {
-        fn call_with_args(&self, args: Args) -> Return;
-    }
-
-    /// Implement CallableFunction for all supported function types using generic implementations
-    /// This eliminates the need for manual implementation for each arity!
-    
-    // 0 arguments
-    impl<R> CallableFunction<(), R> for CallableJitFunction<fn() -> R> {
-        fn call_with_args(&self, _args: ()) -> R {
-            let func: fn() -> R = unsafe { self.as_fn() };
-            func()
-        }
-    }
-
-    // 1 argument
-    impl<R, A1> CallableFunction<(A1,), R> for CallableJitFunction<fn(A1) -> R> {
-        fn call_with_args(&self, args: (A1,)) -> R {
-            let func: fn(A1) -> R = unsafe { self.as_fn() };
-            func(args.0)
-        }
-    }
-
-    // 2 arguments
-    impl<R, A1, A2> CallableFunction<(A1, A2), R> for CallableJitFunction<fn(A1, A2) -> R> {
-        fn call_with_args(&self, args: (A1, A2)) -> R {
-            let func: fn(A1, A2) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1)
-        }
-    }
-
-    // 3 arguments
-    impl<R, A1, A2, A3> CallableFunction<(A1, A2, A3), R> for CallableJitFunction<fn(A1, A2, A3) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3)) -> R {
-            let func: fn(A1, A2, A3) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2)
-        }
-    }
-
-    // 4 arguments
-    impl<R, A1, A2, A3, A4> CallableFunction<(A1, A2, A3, A4), R> for CallableJitFunction<fn(A1, A2, A3, A4) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3, A4)) -> R {
-            let func: fn(A1, A2, A3, A4) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2, args.3)
-        }
-    }
-
-    // 5 arguments
-    impl<R, A1, A2, A3, A4, A5> CallableFunction<(A1, A2, A3, A4, A5), R> for CallableJitFunction<fn(A1, A2, A3, A4, A5) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3, A4, A5)) -> R {
-            let func: fn(A1, A2, A3, A4, A5) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2, args.3, args.4)
-        }
-    }
-
-    // 6 arguments
-    impl<R, A1, A2, A3, A4, A5, A6> CallableFunction<(A1, A2, A3, A4, A5, A6), R> for CallableJitFunction<fn(A1, A2, A3, A4, A5, A6) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3, A4, A5, A6)) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2, args.3, args.4, args.5)
-        }
-    }
-
-    // 7 arguments
-    impl<R, A1, A2, A3, A4, A5, A6, A7> CallableFunction<(A1, A2, A3, A4, A5, A6, A7), R> for CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3, A4, A5, A6, A7)) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6, A7) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2, args.3, args.4, args.5, args.6)
-        }
-    }
-
-    // 8 arguments
-    impl<R, A1, A2, A3, A4, A5, A6, A7, A8> CallableFunction<(A1, A2, A3, A4, A5, A6, A7, A8), R> for CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7, A8) -> R> {
-        fn call_with_args(&self, args: (A1, A2, A3, A4, A5, A6, A7, A8)) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6, A7, A8) -> R = unsafe { self.as_fn() };
-            func(args.0, args.1, args.2, args.3, args.4, args.5, args.6, args.7)
-        }
-    }
-
-
-
-
-
-
-
-
     /// Direct call methods based on function signature - the ultimate solution!
     /// These override the generic call method with signature-specific versions
     
@@ -264,21 +171,13 @@ pub mod jit {
         }
     }
 
-    impl<A1, A2, A3, A4, A5, A6, A7, A8, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7, A8) -> R> {
-        /// Call with eight arguments
-        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8) -> R {
-            let func: fn(A1, A2, A3, A4, A5, A6, A7, A8) -> R = unsafe { self.as_fn() };
-            func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+    impl<A1, A2, A3, A4, A5, A6, A7, R> CallableJitFunction<fn(A1, A2, A3, A4, A5, A6, A7) -> R> {
+        /// Call with seven arguments
+        pub fn call(&self, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> R {
+            let func: fn(A1, A2, A3, A4, A5, A6, A7) -> R = unsafe { self.as_fn() };
+            func(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
         }
     }
-
-
-    
-
-    
-
-
-
 
     // Note: For void return functions, we don't generate them here 
     // as they would need special handling with unit type ()
