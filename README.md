@@ -62,11 +62,18 @@ builder3.addi(reg::A0, reg::ZERO, 100);
 builder3.ret();
 let instructions3 = builder3.instructions();
 
-// Convert to bytes for execution
-for instr in instructions {
-    let bytes = instr.bytes();
-    println!("Instruction: {} -> {:?}", instr, bytes);
+// Convert instructions to bytes easily
+let bytes = instructions.to_bytes();     // All instructions as one byte vector
+let size = instructions.total_size();    // Total size in bytes
+let count = instructions.len();          // Number of instructions
+
+// Iterate over instructions
+for (i, instr) in instructions.iter().enumerate() {
+    println!("Instruction {}: {} -> {:?}", i, instr, instr.bytes());
 }
+
+// Or access by index
+let first_instr = instructions[0];
 ```
 
 ### No-std Usage
@@ -84,12 +91,17 @@ jit-assembler = { version = "0.1", default-features = false, features = ["riscv"
 
 The RISC-V backend supports:
 
-- **CSR instructions**: `csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`, `csrr` (read alias)
-- **Arithmetic**: `add`, `sub`, `addi`, `xor`, `or`, `and`
+- **CSR instructions**: `csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`
+- **CSR pseudo-instructions**: `csrr` (read), `csrw` (write), `csrs` (set), `csrc` (clear), `csrwi`, `csrsi`, `csrci`
+- **Arithmetic**: `add`, `sub`, `addi`, `xor`, `or`, `and`, `slt`, `sltu`
+- **Immediate arithmetic**: `andi`, `ori`, `xori`, `slti`, `sltiu`
 - **Control flow**: `jal`, `jalr`, `beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`
-- **Memory**: `ld`, `lw`, `lh`, `lb`, `sd`, `sw`, `sh`, `sb`
+- **Memory (signed)**: `ld`, `lw`, `lh`, `lb`, `sd`, `sw`, `sh`, `sb`
+- **Memory (unsigned)**: `lbu`, `lhu`, `lwu`
 - **Shifts**: `sll`, `srl`, `sra`, `slli`, `srli`, `srai`
 - **Upper immediates**: `lui`, `auipc`
+- **Privileged instructions**: `sret`, `mret`, `ecall`, `ebreak`, `wfi`
+- **Pseudo-instructions**: `ret`, `li`
 
 ### Future Architectures
 
@@ -115,12 +127,8 @@ fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
         ret();                             // Return
     };
     
-    // Convert to bytes for execution
-    let mut code = Vec::new();
-    for instr in instructions {
-        code.extend_from_slice(&instr.bytes());
-    }
-    code
+    // Convert to bytes for execution (new simplified API)
+    instructions.to_bytes()
 }
 
 // Builder pattern for complex logic
@@ -132,12 +140,8 @@ fn generate_csr_routine() -> Vec<u8> {
         .addi(reg::T1, reg::T0, 1)           // Modify value in t1
         .csrrw(reg::A0, csr::MSTATUS, reg::T1); // Write back, old value in a0
     
-    // Convert to executable code
-    let mut code = Vec::new();
-    for instr in builder.instructions() {
-        code.extend_from_slice(&instr.bytes());
-    }
-    code
+    // Convert to executable code (new simplified API)
+    builder.instructions().to_bytes()
 }
 ```
 

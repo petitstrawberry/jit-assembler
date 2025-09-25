@@ -19,7 +19,14 @@ impl Riscv64InstructionBuilder {
         }
     }
 
-    pub fn instructions(&self) -> &[Instruction] {
+    /// Returns a slice of the raw instructions.
+    ///
+    /// This method exposes the internal instruction buffer directly as a slice.
+    /// Prefer using the `instructions()` method from the `InstructionBuilder` trait
+    /// for most use cases, as it provides a higher-level abstraction and is part of
+    /// the public API. Use `raw_instructions` only if you specifically need access
+    /// to the underlying slice for migration or performance reasons.
+    pub fn raw_instructions(&self) -> &[Instruction] {
         &self.instructions
     }
 
@@ -41,8 +48,8 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
         }
     }
 
-    fn instructions(&self) -> &[Instruction] {
-        &self.instructions
+    fn instructions(&self) -> crate::common::InstructionCollection<Instruction> {
+        crate::common::InstructionCollection::from_slice(&self.instructions)
     }
 
     fn push(&mut self, instr: Instruction) {
@@ -84,12 +91,8 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     /// ```
     #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
-        // Convert instructions to bytes
-        let mut code = Vec::new();
-        for instr in &self.instructions {
-            code.extend_from_slice(&instr.bytes());
-        }
-
+        // Convert instructions to bytes using the new Instructions struct
+        let code = self.instructions().to_bytes();
         crate::common::jit::CallableJitFunction::<F>::new(&code)
     }
 }

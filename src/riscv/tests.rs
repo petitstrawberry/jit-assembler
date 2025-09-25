@@ -1117,7 +1117,7 @@ fn test_binary_correctness_multiline_arithmetic() {
     builder.sub(reg::X4, reg::X3, reg::X1);
     
     let instructions = builder.instructions();
-    compare_instructions(instructions, 
+    compare_instructions(&instructions, 
         "addi x1, x0, 10\naddi x2, x0, 20\nadd x3, x1, x2\nsub x4, x3, x1\n");
 }
 
@@ -1133,7 +1133,7 @@ fn test_binary_correctness_multiline_logic_shifts() {
     builder.srli(reg::X5, reg::X4, 2);
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "lui x1, 0x12345\naddi x2, x1, 0x678\nxor x3, x1, x2\nslli x4, x3, 4\nsrli x5, x4, 2\n");
 }
 
@@ -1148,7 +1148,7 @@ fn test_binary_correctness_multiline_csr_operations() {
     builder.csrrs(reg::X4, csr::MEPC, reg::X0);
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "csrr x1, mstatus\naddi x2, x1, 1\ncsrrw x3, mstatus, x2\ncsrrs x4, mepc, x0\n");
 }
 
@@ -1165,7 +1165,7 @@ fn test_binary_correctness_multiline_mixed_mode_csr_operations() {
     builder.csrrs(reg::X6, csr::SIE, reg::X0);       // S-mode read
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "csrr x1, mstatus\ncsrr x2, sstatus\ncsrrw x3, mtvec, x1\ncsrrw x4, stvec, x2\ncsrrs x5, mie, x0\ncsrrs x6, sie, x0\n");
 }
 
@@ -1182,7 +1182,7 @@ fn test_binary_correctness_multiline_s_mode_supervisor_context_switch() {
     builder.csrrwi(reg::X6, csr::SIE, 0x0);  // Disable supervisor interrupts
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "csrr x1, sstatus\ncsrr x2, sepc\ncsrr x3, scause\ncsrr x4, stval\ncsrrw x5, sscratch, x2\ncsrrwi x6, sie, 0x0\n");
 }
 
@@ -1199,7 +1199,7 @@ fn test_binary_correctness_multiline_memory_operations() {
     builder.sw(reg::X1, reg::X4, 4);
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "lui x1, 0x10000\naddi x2, x0, 42\nsw x2, 0(x1)\nlw x3, 0(x1)\naddi x4, x3, 1\nsw x4, 4(x1)\n");
 }
 
@@ -1215,7 +1215,7 @@ fn test_binary_correctness_multiline_control_flow() {
     builder.jal(reg::X3, 0);           // Jump to self (zero offset)
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "addi x1, x0, 5\naddi x2, x0, 10\nbeq x1, x2, .\nbne x1, x2, .\njal x3, .\n");
 }
 
@@ -1235,7 +1235,7 @@ fn test_binary_correctness_multiline_comprehensive() {
     builder.beq(reg::X4, reg::X6, 0);       // Branch operation
     
     let instructions = builder.instructions();
-    compare_instructions(instructions,
+    compare_instructions(&instructions,
         "lui x1, 0x12345\naddi x1, x1, 0x678\nadd x2, x1, x0\nslli x3, x2, 1\nxor x4, x2, x3\ncsrr x5, mstatus\nsw x4, 8(x1)\nlw x6, 8(x1)\nbeq x4, x6, .\n");
 }
 

@@ -40,7 +40,12 @@
 //! builder2.ret();
 //! let instructions2 = builder2.instructions();
 //!
-//! // Convert to bytes for execution
+//! // InstructionCollection provides convenient methods
+//! let bytes = instructions.to_bytes();     // Convert all to bytes
+//! let size = instructions.total_size();    // Get total size
+//! let count = instructions.len();          // Get instruction count
+//!
+//! // Iterate over instructions
 //! for instr in instructions {
 //!     let bytes = instr.bytes();
 //!     // Write to executable memory...

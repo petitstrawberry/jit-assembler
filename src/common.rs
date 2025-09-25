@@ -31,7 +31,7 @@ pub trait InstructionBuilder<I: Instruction> {
     fn new() -> Self;
     
     /// Get the generated instructions
-    fn instructions(&self) -> &[I];
+    fn instructions(&self) -> InstructionCollection<I>;
     
     /// Add an instruction to the builder
     fn push(&mut self, instr: I);
@@ -54,6 +54,233 @@ pub trait InstructionBuilder<I: Instruction> {
     /// 
     #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
+}
+
+/// Convenience functions for instruction collections
+/// These functions work with any collection of instructions
+pub fn instructions_to_bytes<I: Instruction>(instructions: &[I]) -> Vec<u8> {
+    let mut result = Vec::new();
+    for instr in instructions {
+        result.extend_from_slice(&instr.bytes());
+    }
+    result
+}
+
+/// Get the total size in bytes of a collection of instructions
+pub fn instructions_total_size<I: Instruction>(instructions: &[I]) -> usize {
+    instructions.iter().map(|i| i.size()).sum()
+}
+
+/// A collection of instructions with convenient methods for byte manipulation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstructionCollection<I: Instruction> {
+    instructions: Vec<I>,
+}
+
+impl<I: Instruction> InstructionCollection<I> {
+    /// Create a new empty instruction collection
+    pub fn new() -> Self {
+        Self {
+            instructions: Vec::new(),
+        }
+    }
+    
+    /// Create from a vector of instructions
+    pub fn from_vec(instructions: Vec<I>) -> Self {
+        Self { instructions }
+    }
+    
+    /// Create from a slice of instructions
+    pub fn from_slice(instructions: &[I]) -> Self {
+        Self {
+            instructions: instructions.to_vec(),
+        }
+    }
+    
+    /// Get the instructions as a slice
+    pub fn as_slice(&self) -> &[I] {
+        &self.instructions
+    }
+    
+    /// Get the instructions as a mutable slice
+    pub fn as_mut_slice(&mut self) -> &mut [I] {
+        &mut self.instructions
+    }
+    
+    /// Convert instructions to a single byte vector
+    pub fn to_bytes(&self) -> Vec<u8> {
+        instructions_to_bytes(&self.instructions)
+    }
+    
+    /// Get the total size in bytes of all instructions
+    pub fn total_size(&self) -> usize {
+        instructions_total_size(&self.instructions)
+    }
+    
+    /// Get the number of instructions
+    pub fn len(&self) -> usize {
+        self.instructions.len()
+    }
+    
+    /// Check if the collection is empty
+    pub fn is_empty(&self) -> bool {
+        self.instructions.is_empty()
+    }
+    
+    /// Add an instruction to the collection
+    pub fn push(&mut self, instruction: I) {
+        self.instructions.push(instruction);
+    }
+    
+    /// Remove all instructions
+    pub fn clear(&mut self) {
+        self.instructions.clear();
+    }
+    
+    /// Get an iterator over the instructions
+    pub fn iter(&self) -> core::slice::Iter<'_, I> {
+        self.instructions.iter()
+    }
+    
+    /// Get a mutable iterator over the instructions
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, I> {
+        self.instructions.iter_mut()
+    }
+    
+    /// Convert to a Vec (consumes self)
+    pub fn into_vec(self) -> Vec<I> {
+        self.instructions
+    }
+    
+    /// Create a Vec by cloning the instructions
+    pub fn to_vec(&self) -> Vec<I> {
+        self.instructions.clone()
+    }
+    
+    /// Get a reference to the instruction at the given index
+    pub fn get(&self, index: usize) -> Option<&I> {
+        self.instructions.get(index)
+    }
+    
+    /// Get a mutable reference to the instruction at the given index
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut I> {
+        self.instructions.get_mut(index)
+    }
+}
+
+impl<I: Instruction> Default for InstructionCollection<I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<I: Instruction> From<Vec<I>> for InstructionCollection<I> {
+    fn from(instructions: Vec<I>) -> Self {
+        Self::from_vec(instructions)
+    }
+}
+
+impl<I: Instruction> From<&[I]> for InstructionCollection<I> {
+    fn from(instructions: &[I]) -> Self {
+        Self::from_slice(instructions)
+    }
+}
+
+impl<I: Instruction> AsRef<[I]> for InstructionCollection<I> {
+    fn as_ref(&self) -> &[I] {
+        &self.instructions
+    }
+}
+
+impl<I: Instruction> AsMut<[I]> for InstructionCollection<I> {
+    fn as_mut(&mut self) -> &mut [I] {
+        &mut self.instructions
+    }
+}
+
+impl<I: Instruction> core::ops::Index<usize> for InstructionCollection<I> {
+    type Output = I;
+    
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.instructions[index]
+    }
+}
+
+impl<I: Instruction> core::ops::IndexMut<usize> for InstructionCollection<I> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.instructions[index]
+    }
+}
+
+impl<I: Instruction> IntoIterator for InstructionCollection<I> {
+    type Item = I;
+    type IntoIter = <Vec<I> as IntoIterator>::IntoIter;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.instructions.into_iter()
+    }
+}
+
+impl<'a, I: Instruction> IntoIterator for &'a InstructionCollection<I> {
+    type Item = &'a I;
+    type IntoIter = core::slice::Iter<'a, I>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.instructions.iter()
+    }
+}
+
+impl<'a, I: Instruction> IntoIterator for &'a mut InstructionCollection<I> {
+    type Item = &'a mut I;
+    type IntoIter = core::slice::IterMut<'a, I>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.instructions.iter_mut()
+    }
+}
+
+impl<I: Instruction> core::ops::Deref for InstructionCollection<I> {
+    type Target = [I];
+    
+    fn deref(&self) -> &Self::Target {
+        &self.instructions
+    }
+}
+
+impl<I: Instruction> core::ops::DerefMut for InstructionCollection<I> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.instructions
+    }
+}
+
+/// Trait extension for instruction collections
+/// This allows you to call `.to_bytes()` and `.total_size()` directly on slices and vectors
+pub trait InstructionCollectionExt<I: Instruction> {
+    /// Convert instructions to a single byte vector
+    fn to_bytes(&self) -> Vec<u8>;
+    
+    /// Get the total size in bytes of all instructions
+    fn total_size(&self) -> usize;
+}
+
+impl<I: Instruction> InstructionCollectionExt<I> for [I] {
+    fn to_bytes(&self) -> Vec<u8> {
+        instructions_to_bytes(self)
+    }
+    
+    fn total_size(&self) -> usize {
+        instructions_total_size(self)
+    }
+}
+
+impl<I: Instruction> InstructionCollectionExt<I> for Vec<I> {
+    fn to_bytes(&self) -> Vec<u8> {
+        instructions_to_bytes(self)
+    }
+    
+    fn total_size(&self) -> usize {
+        instructions_total_size(self)
+    }
 }
 
 /// Architecture-specific encoding functions
