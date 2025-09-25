@@ -490,6 +490,66 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    // Privileged instructions
+
+    /// Supervisor return instruction
+    /// Returns from supervisor mode to user mode or previous privilege level
+    /// This is a privileged instruction that can only be executed in supervisor mode or higher
+    pub fn sret(&mut self) -> &mut Self {
+        let instr = super::instruction::encode_privileged_type(
+            super::instruction::opcodes::SYSTEM,
+            super::instruction::privileged_funct12::SRET
+        );
+        self.push(instr);
+        self
+    }
+
+    /// Machine return instruction
+    /// Returns from machine mode to previous privilege level
+    /// This is a privileged instruction that can only be executed in machine mode
+    pub fn mret(&mut self) -> &mut Self {
+        let instr = super::instruction::encode_privileged_type(
+            super::instruction::opcodes::SYSTEM,
+            super::instruction::privileged_funct12::MRET
+        );
+        self.push(instr);
+        self
+    }
+
+    /// Environment call instruction
+    /// Generates a system call to the execution environment
+    pub fn ecall(&mut self) -> &mut Self {
+        let instr = super::instruction::encode_privileged_type(
+            super::instruction::opcodes::SYSTEM,
+            super::instruction::privileged_funct12::ECALL
+        );
+        self.push(instr);
+        self
+    }
+
+    /// Environment break instruction
+    /// Generates a breakpoint exception
+    pub fn ebreak(&mut self) -> &mut Self {
+        let instr = super::instruction::encode_privileged_type(
+            super::instruction::opcodes::SYSTEM,
+            super::instruction::privileged_funct12::EBREAK
+        );
+        self.push(instr);
+        self
+    }
+
+    /// Wait for interrupt instruction
+    /// Puts the processor in a low-power state until an interrupt occurs
+    /// This is a privileged instruction
+    pub fn wfi(&mut self) -> &mut Self {
+        let instr = super::instruction::encode_privileged_type(
+            super::instruction::opcodes::SYSTEM,
+            super::instruction::privileged_funct12::WFI
+        );
+        self.push(instr);
+        self
+    }
+
     /// Return instruction (alias for jalr x0, x1, 0)
     /// This is a common alias in RISC-V assembly for returning from a function
     pub fn ret(&mut self) -> &mut Self {

@@ -147,6 +147,12 @@ pub fn encode_csr_imm_type(opcode: u8, rd: Register, funct3: u8, uimm: u8, csr: 
     Instruction::Standard(instr)
 }
 
+/// Privileged instruction encoding (special SYSTEM instructions)
+pub fn encode_privileged_type(opcode: u8, funct12: u16) -> Instruction {
+    let instr = ((funct12 as u32) << 20) | (opcode as u32);
+    Instruction::Standard(instr)
+}
+
 /// R-type instruction encoding
 pub fn encode_r_type(opcode: u8, rd: Register, funct3: u8, rs1: Register, rs2: Register, funct7: u8) -> Instruction {
     let instr = ((funct7 as u32) << 25) | ((rs2.value() as u32) << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
@@ -215,6 +221,15 @@ pub mod system_funct3 {
     pub const CSRRWI: u8 = 0x5;
     pub const CSRRSI: u8 = 0x6;
     pub const CSRRCI: u8 = 0x7;
+}
+
+/// Privileged instruction function codes (funct12 field)
+pub mod privileged_funct12 {
+    pub const ECALL: u16 = 0x000;  // Environment call
+    pub const EBREAK: u16 = 0x001; // Environment break
+    pub const SRET: u16 = 0x102;   // Supervisor return
+    pub const MRET: u16 = 0x302;   // Machine return
+    pub const WFI: u16 = 0x105;    // Wait for interrupt
 }
 
 /// Branch instruction function codes

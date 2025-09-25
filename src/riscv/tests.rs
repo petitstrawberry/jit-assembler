@@ -475,6 +475,26 @@ fn test_ret_instruction_with_aliases() {
 }
 
 #[test]
+fn test_privileged_instructions() {
+    let mut builder = Riscv64InstructionBuilder::new();
+    
+    // Test privileged instructions
+    builder.sret();    // Supervisor return
+    builder.mret();    // Machine return
+    builder.ecall();   // Environment call
+    builder.ebreak();  // Environment break
+    builder.wfi();     // Wait for interrupt
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 5);
+    
+    // Verify all instructions are non-zero
+    for instr in instructions {
+        assert!(instr.value() != 0);
+    }
+}
+
+#[test]
 fn test_aliases_with_macro() {
     // Test using aliases in macro
     let instructions = crate::jit_asm! {
@@ -900,6 +920,40 @@ fn test_binary_correctness_s_mode_csr_write_operations() {
     builder.csrrci(reg::X9, csr::SIP, 0x08);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "csrrci x9, sip, 0x08\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_privileged() {
+    // Test SRET instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.sret();
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sret\n");
+    
+    // Test MRET instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mret();
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "mret\n");
+    
+    // Test ECALL instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.ecall();
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "ecall\n");
+    
+    // Test EBREAK instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.ebreak();
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "ebreak\n");
+    
+    // Test WFI instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.wfi();
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "wfi\n");
 }
 
 #[cfg(feature = "std")]
