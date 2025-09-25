@@ -306,9 +306,19 @@ fn test_arithmetic_instructions() {
     builder.addi(reg::X1, reg::X2, 100);
     builder.add(reg::X3, reg::X1, reg::X2);
     builder.sub(reg::X4, reg::X3, reg::X1);
+    builder.andi(reg::X5, reg::X1, 0xFF); // Test andi instruction
+    builder.ori(reg::X6, reg::X1, 0x100); // Test ori instruction
+    builder.xori(reg::X7, reg::X1, 0x200); // Test xori instruction
+    builder.slti(reg::X8, reg::X1, 50); // Test slti instruction
+    builder.sltiu(reg::X9, reg::X1, 200); // Test sltiu instruction
+    builder.lbu(reg::X10, reg::X2, 0); // Test lbu instruction
+    builder.lhu(reg::X11, reg::X2, 0); // Test lhu instruction
+    builder.lwu(reg::X12, reg::X2, 0); // Test lwu instruction
+    builder.slt(reg::X13, reg::X1, reg::X2); // Test slt instruction
+    builder.sltu(reg::X14, reg::X1, reg::X2); // Test sltu instruction
 
     let instructions = builder.instructions();
-    assert_eq!(instructions.len(), 3);
+    assert_eq!(instructions.len(), 13);
 }
 
 // Example of how this would be used in codegen
@@ -638,6 +648,48 @@ fn test_binary_correctness_logical() {
     builder.and(reg::X7, reg::X5, reg::X6);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "and x7, x5, x6\n");
+    
+    // Test ANDI (AND immediate)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.andi(reg::X8, reg::X1, 0xFF);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "andi x8, x1, 255\n");
+    
+    // Test ORI (OR immediate)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.ori(reg::X9, reg::X2, 0x100);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "ori x9, x2, 256\n");
+    
+    // Test XORI (XOR immediate)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.xori(reg::X10, reg::X3, 0x200);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "xori x10, x3, 512\n");
+    
+    // Test SLTI (Set Less Than immediate)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.slti(reg::X11, reg::X4, 50);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "slti x11, x4, 50\n");
+    
+    // Test SLTIU (Set Less Than immediate Unsigned)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.sltiu(reg::X12, reg::X5, 200);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sltiu x12, x5, 200\n");
+    
+    // Test SLT (Set Less Than)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.slt(reg::X13, reg::X6, reg::X7);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "slt x13, x6, x7\n");
+    
+    // Test SLTU (Set Less Than Unsigned)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.sltu(reg::X14, reg::X8, reg::X9);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "sltu x14, x8, x9\n");
 }
 
 #[cfg(feature = "std")]
@@ -887,6 +939,24 @@ fn test_binary_correctness_memory() {
     builder.lb(reg::X7, reg::X8, 1);
     let instructions = builder.instructions();
     compare_instruction(instructions[0], "lb x7, 1(x8)\n");
+    
+    // Test LBU instruction (Load Byte Unsigned)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.lbu(reg::X9, reg::X10, 1);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lbu x9, 1(x10)\n");
+    
+    // Test LHU instruction (Load Halfword Unsigned)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.lhu(reg::X11, reg::X12, 2);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lhu x11, 2(x12)\n");
+    
+    // Test LWU instruction (Load Word Unsigned)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.lwu(reg::X13, reg::X14, 4);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "lwu x13, 4(x14)\n");
     
     // Test SD instruction
     let mut builder = Riscv64InstructionBuilder::new();

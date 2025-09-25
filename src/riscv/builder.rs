@@ -157,6 +157,13 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    /// Generate subtract immediate instruction
+    pub fn subi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, -imm);
+        self.push(instr);
+        self
+    }
+
     /// Generate subtract instruction
     pub fn sub(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
         let instr = encode_r_type(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x20);
@@ -178,9 +185,58 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    /// Generate OR immediate instruction
+    pub fn ori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::OR, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate XOR immediate instruction
+    pub fn xori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::XOR, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate Set Less Than immediate instruction
+    pub fn slti(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLT, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate Set Less Than immediate Unsigned instruction
+    pub fn sltiu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLTU, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate Set Less Than instruction
+    pub fn slt(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLT, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
+    /// Generate Set Less Than Unsigned instruction
+    pub fn sltu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLTU, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
     /// Generate AND instruction
     pub fn and(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
         let instr = encode_r_type(opcodes::OP, rd, alu_funct3::AND, rs1, rs2, 0x0);
+        self.push(instr);
+        self
+    }
+
+    /// Generate AND immediate instruction
+    pub fn andi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::AND, rs1, imm);
         self.push(instr);
         self
     }
@@ -265,6 +321,27 @@ impl Riscv64InstructionBuilder {
     /// Generate LB (Load Byte) instruction
     pub fn lb(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
         let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LB, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate LBU (Load Byte Unsigned) instruction
+    pub fn lbu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LBU, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate LHU (Load Halfword Unsigned) instruction
+    pub fn lhu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LHU, rs1, imm);
+        self.push(instr);
+        self
+    }
+
+    /// Generate LWU (Load Word Unsigned) instruction
+    pub fn lwu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
+        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LWU, rs1, imm);
         self.push(instr);
         self
     }
