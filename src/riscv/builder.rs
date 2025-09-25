@@ -19,6 +19,13 @@ impl Riscv64InstructionBuilder {
         }
     }
 
+    /// Returns a slice of the raw instructions.
+    ///
+    /// This method exposes the internal instruction buffer directly as a slice.
+    /// Prefer using the `instructions()` method from the `InstructionBuilder` trait
+    /// for most use cases, as it provides a higher-level abstraction and is part of
+    /// the public API. Use `raw_instructions` only if you specifically need access
+    /// to the underlying slice for migration or performance reasons.
     pub fn raw_instructions(&self) -> &[Instruction] {
         &self.instructions
     }
