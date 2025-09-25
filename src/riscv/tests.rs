@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
 use crate::riscv::{reg, csr, Instruction, InstructionBuilder};
 
 #[cfg(feature = "std")]
@@ -11,6 +9,8 @@ use alloc::vec;
 use std::process::Command;
 #[cfg(feature = "std")]
 use std::fs;
+#[cfg(feature = "std")]
+use crate::common::InstructionBuilder;
 
 /// Helper function to assemble RISC-V assembly and extract binary data
 #[cfg(feature = "std")]
@@ -1214,5 +1214,3 @@ fn test_natural_call_syntax() {
         assert_eq!(r8, 36);     // 1+2+3+4+5+6+7+8 = 36
     }
 }
-
-} // end of tests module
