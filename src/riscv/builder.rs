@@ -269,6 +269,21 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    /// Load immediate value into register (handles large immediates)
+    /// This is a common pseudo-instruction in RISC-V assembly
+    pub fn li(&mut self, rd: Register, imm: i32) -> &mut Self {
+        // LUI loads the upper 20 bits, ADDI adds the lower 12 bits
+        let upper = (imm + 0x800) >> 12; // Round up if lower 12 bits are negative
+        let lower = imm & 0xfff;
+        if upper != 0 {
+            self.lui(rd, upper as u32);
+        }
+        if lower != 0 || upper == 0 {
+            self.addi(rd, rd, lower as i16);
+        }
+        self
+    }
+
     /// Generate SD (Store Doubleword) instruction
     pub fn sd(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
         let instr = encode_s_type(opcodes::STORE, store_funct3::SD, rs1, rs2, imm);
