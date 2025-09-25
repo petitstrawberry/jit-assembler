@@ -19,6 +19,7 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     fn size(&self) -> usize;
     
     #[cfg(feature = "std")]
+    /// Create a JIT-compiled function from the assembled instructions (std-only)
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError>;
 }
 
