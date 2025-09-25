@@ -378,7 +378,7 @@ pub mod jit {
         exec_ptr: *const u8,
     }
 
-        impl RawCallableJitFunction {
+    impl RawCallableJitFunction {
         /// Create a new raw callable JIT function from instruction bytes
         pub fn new(code: &[u8]) -> Result<Self, JitError> {
             let mut allocator = JitAllocator::new(Default::default());
