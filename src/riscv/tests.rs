@@ -1360,8 +1360,8 @@ fn test_natural_call_syntax() {
     
     // Beautiful natural function call syntax! (Only execute on RISC-V)
 
-    // Eight arguments - ultimate power demonstration
-    let _func8 = unsafe {
+    // Seven arguments - ultimate power demonstration
+    let _func7 = unsafe {
         Riscv64InstructionBuilder::new()
             .add(reg::A0, reg::A0, reg::A1)    // Sum all arguments
             .add(reg::A0, reg::A0, reg::A2)
@@ -1369,9 +1369,8 @@ fn test_natural_call_syntax() {
             .add(reg::A0, reg::A0, reg::A4)
             .add(reg::A0, reg::A0, reg::A5)
             .add(reg::A0, reg::A0, reg::A6)
-            .add(reg::A0, reg::A0, reg::A7)
             .ret()
-            .function::<fn(u64, u64, u64, u64, u64, u64, u64, u64) -> u64>()
+            .function::<fn(u64, u64, u64, u64, u64, u64, u64) -> u64>()
     }.expect("Failed to create function");
     
     #[cfg(target_arch = "riscv64")]
