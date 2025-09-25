@@ -11,6 +11,7 @@
 /// Usage:
 /// ```rust
 /// use jit_assembler::riscv::{reg, csr};
+/// use jit_assembler::common::InstructionBuilder;
 ///
 /// let instructions = jit_assembler::jit_asm! {
 ///     csrrw(reg::X1, csr::MSTATUS, reg::X2);

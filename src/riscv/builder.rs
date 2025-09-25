@@ -19,7 +19,7 @@ impl Riscv64InstructionBuilder {
         }
     }
 
-    pub fn instructions(&self) -> &[Instruction] {
+    pub fn raw_instructions(&self) -> &[Instruction] {
         &self.instructions
     }
 
@@ -41,8 +41,8 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
         }
     }
 
-    fn instructions(&self) -> &[Instruction] {
-        &self.instructions
+    fn instructions(&self) -> crate::common::InstructionCollection<Instruction> {
+        crate::common::InstructionCollection::from_slice(&self.instructions)
     }
 
     fn push(&mut self, instr: Instruction) {
@@ -84,12 +84,8 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     /// ```
     #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
-        // Convert instructions to bytes
-        let mut code = Vec::new();
-        for instr in &self.instructions {
-            code.extend_from_slice(&instr.bytes());
-        }
-
+        // Convert instructions to bytes using the new Instructions struct
+        let code = self.instructions().to_bytes();
         crate::common::jit::CallableJitFunction::<F>::new(&code)
     }
 }
