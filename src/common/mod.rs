@@ -2,6 +2,10 @@
 
 use core::fmt;
 
+/// Register usage tracking functionality
+#[cfg(feature = "register-tracking")]
+pub mod register_usage;
+
 #[cfg(feature = "std")]
 use std::vec::Vec;
 #[cfg(not(feature = "std"))]
@@ -19,14 +23,93 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     fn size(&self) -> usize;
 }
     
+/// ABI classification for registers based on preservation requirements.
+/// 
+/// This simplified classification focuses on whether registers need to be
+/// preserved across function calls, which is the most critical information
+/// for JIT compilation and register allocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AbiClass {
+    /// Caller-saved registers that don't need to be preserved across calls.
+    /// 
+    /// These registers can be freely used by JIT-compiled functions without
+    /// saving/restoring their values. Examples: argument registers, temp registers.
+    CallerSaved,
+    
+    /// Callee-saved registers that must be preserved across calls.
+    /// 
+    /// If a JIT-compiled function uses these registers, it must save their
+    /// values on entry and restore them before returning. Examples: saved registers.
+    CalleeSaved,
+    
+    /// Special-purpose registers with specific ABI requirements.
+    /// 
+    /// These registers have specific roles (stack pointer, frame pointer, zero register, etc.)
+    /// and require careful handling. Generally should be avoided in JIT code
+    /// unless specifically needed for their intended purpose.
+    Special,
+}
+
+impl fmt::Display for AbiClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AbiClass::CallerSaved => write!(f, "caller-saved"),
+            AbiClass::CalleeSaved => write!(f, "callee-saved"),
+            AbiClass::Special => write!(f, "special"),
+        }
+    }
+}
+
 /// A register identifier for a target architecture
-pub trait Register: Copy + Clone + fmt::Debug {
+pub trait Register: Copy + Clone + fmt::Debug + core::hash::Hash + Eq {
     /// Get the register number/identifier
     fn id(&self) -> u32;
+    
+    /// Get the ABI classification for this register.
+    /// 
+    /// This method should return the appropriate `AbiClass` based on the
+    /// target architecture's calling convention.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust,ignore
+    /// // For RISC-V
+    /// match self {
+    ///     Register::T0 | Register::T1 => AbiClass::CallerSaved,
+    ///     Register::S0 | Register::S1 => AbiClass::CalleeSaved,
+    ///     Register::SP | Register::FP => AbiClass::Other,
+    ///     // ...
+    /// }
+    /// ```
+    fn abi_class(&self) -> AbiClass;
+    
+    /// Check if this register is caller-saved.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::CallerSaved`.
+    fn is_caller_saved(&self) -> bool {
+        self.abi_class() == AbiClass::CallerSaved
+    }
+    
+    /// Check if this register is callee-saved.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::CalleeSaved`.
+    fn is_callee_saved(&self) -> bool {
+        self.abi_class() == AbiClass::CalleeSaved
+    }
+    
+    /// Check if this register is special-purpose.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::Special`.
+    fn is_special(&self) -> bool {
+        self.abi_class() == AbiClass::Special
+    }
 }
 
 /// An instruction builder for a specific architecture
 pub trait InstructionBuilder<I: Instruction> {
+    /// The register type used by this architecture
+    type Register: Register;
+    
     /// Create a new instruction builder
     fn new() -> Self;
     
@@ -38,6 +121,30 @@ pub trait InstructionBuilder<I: Instruction> {
     
     /// Clear all instructions
     fn clear(&mut self);
+    
+    /// Get register usage information (register-tracking feature only)
+    /// 
+    /// This method returns information about which registers have been used
+    /// by the instructions in this builder, enabling register allocation
+    /// analysis and ABI compliance checking.
+    #[cfg(feature = "register-tracking")]
+    fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register>;
+    
+    /// Get mutable register usage information (register-tracking feature only)
+    /// 
+    /// This allows direct manipulation of the usage tracking, which can be
+    /// useful for advanced use cases or manual register tracking.
+    #[cfg(feature = "register-tracking")]
+    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register>;
+    
+    /// Clear register usage information (register-tracking feature only)
+    /// 
+    /// This resets the usage tracking to an empty state, which can be
+    /// useful when reusing a builder for multiple functions.
+    #[cfg(feature = "register-tracking")]
+    fn clear_register_usage(&mut self) {
+        self.register_usage_mut().clear();
+    }
     
     /// Create a JIT-compiled function from the assembled instructions (std-only)
     /// 

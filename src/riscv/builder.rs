@@ -10,13 +10,106 @@ use alloc::vec::Vec;
 /// Instruction builder for generating RISC-V instructions
 pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,
+    #[cfg(feature = "register-tracking")]
+    register_usage: crate::common::register_usage::RegisterUsageInfo<Register>,
 }
 
 impl Riscv64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            #[cfg(feature = "register-tracking")]
+            register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
+    }
+    
+    /// Track a written register (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_written_register(&mut self, reg: Register) {
+        self.register_usage.add_written_register(reg);
+    }
+    
+    /// Track a read register (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_read_register(&mut self, reg: Register) {
+        self.register_usage.add_read_register(reg);
+    }
+    
+    /// Track multiple read registers at once (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_read_registers(&mut self, regs: &[Register]) {
+        for &reg in regs {
+            self.register_usage.add_read_register(reg);
+        }
+    }
+    
+    /// No-op versions for when register-tracking is disabled
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_written_register(&mut self, _reg: Register) {
+        // No-op
+    }
+    
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_read_register(&mut self, _reg: Register) {
+        // No-op
+    }
+    
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_read_registers(&mut self, _regs: &[Register]) {
+        // No-op
+    }
+    
+    // Register tracking wrapper functions for encode_* functions
+    
+    /// R-type instruction with register tracking: rd = f(rs1, rs2)
+    fn encode_r_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, rs2: Register, funct7: u8) -> Instruction {
+        self.track_written_register(rd);
+        self.track_read_registers(&[rs1, rs2]);
+        encode_r_type(opcode, rd, funct3, rs1, rs2, funct7)
+    }
+    
+    /// I-type instruction with register tracking: rd = f(rs1, imm)
+    fn encode_i_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, imm: i16) -> Instruction {
+        self.track_written_register(rd);
+        self.track_read_register(rs1);
+        encode_i_type(opcode, rd, funct3, rs1, imm)
+    }
+    
+    /// S-type instruction with register tracking: MEM[rs1 + imm] = rs2
+    fn encode_s_type_tracked(&mut self, opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+        self.track_read_registers(&[rs1, rs2]);
+        encode_s_type(opcode, funct3, rs1, rs2, imm)
+    }
+    
+    /// B-type instruction with register tracking: branch if f(rs1, rs2)
+    fn encode_b_type_tracked(&mut self, opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+        self.track_read_registers(&[rs1, rs2]);
+        encode_b_type(opcode, funct3, rs1, rs2, imm)
+    }
+    
+    /// U-type instruction with register tracking: rd = imm << 12
+    fn encode_u_type_tracked(&mut self, opcode: u8, rd: Register, imm: u32) -> Instruction {
+        self.track_written_register(rd);
+        encode_u_type(opcode, rd, imm)
+    }
+    
+    /// J-type instruction with register tracking: rd = PC + 4, PC += imm
+    fn encode_j_type_tracked(&mut self, opcode: u8, rd: Register, imm: i32) -> Instruction {
+        self.track_written_register(rd);
+        encode_j_type(opcode, rd, imm)
+    }
+    
+    /// CSR-type instruction with register tracking: rd = CSR, CSR = f(CSR, rs1)
+    fn encode_csr_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, csr: Csr) -> Instruction {
+        self.track_written_register(rd);
+        self.track_read_register(rs1);
+        encode_csr_type(opcode, rd, funct3, rs1, csr)
+    }
+    
+    /// CSR immediate-type instruction with register tracking: rd = CSR, CSR = f(CSR, uimm)
+    fn encode_csr_imm_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, uimm: u8, csr: Csr) -> Instruction {
+        self.track_written_register(rd);
+        encode_csr_imm_type(opcode, rd, funct3, uimm, csr)
     }
 
     /// Returns a slice of the raw instructions.
@@ -37,14 +130,20 @@ impl Riscv64InstructionBuilder {
 
     pub fn clear(&mut self) -> &mut Self {
         self.instructions.clear();
+        #[cfg(feature = "register-tracking")]
+        self.register_usage.clear();
         self
     }
 }
 
 impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
+    type Register = Register;
+    
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            #[cfg(feature = "register-tracking")]
+            register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
 
@@ -58,6 +157,18 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
 
     fn clear(&mut self) {
         self.instructions.clear();
+        #[cfg(feature = "register-tracking")]
+        self.register_usage.clear();
+    }
+    
+    #[cfg(feature = "register-tracking")]
+    fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+        &self.register_usage
+    }
+    
+    #[cfg(feature = "register-tracking")]
+    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+        &mut self.register_usage
     }
     
     /// Create a JIT-compiled function from the assembled instructions (std-only)
@@ -106,42 +217,42 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
 impl Riscv64InstructionBuilder {
     /// Generate CSR read-write instruction
     pub fn csrrw(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = encode_csr_type(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);
+        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-set instruction
     pub fn csrrs(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = encode_csr_type(opcodes::SYSTEM, rd, system_funct3::CSRRS, rs1, csr);
+        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRS, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-clear instruction
     pub fn csrrc(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = encode_csr_type(opcodes::SYSTEM, rd, system_funct3::CSRRC, rs1, csr);
+        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRC, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-write immediate instruction
     pub fn csrrwi(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = encode_csr_imm_type(opcodes::SYSTEM, rd, system_funct3::CSRRWI, uimm, csr);
+        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRWI, uimm, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-set immediate instruction
     pub fn csrrsi(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = encode_csr_imm_type(opcodes::SYSTEM, rd, system_funct3::CSRRSI, uimm, csr);
+        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRSI, uimm, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-clear immediate instruction
     pub fn csrrci(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = encode_csr_imm_type(opcodes::SYSTEM, rd, system_funct3::CSRRCI, uimm, csr);
+        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRCI, uimm, csr);
         self.push(instr);
         self
     }
@@ -194,13 +305,13 @@ impl Riscv64InstructionBuilder {
 
     /// Generate add instruction
     pub fn add(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
     /// Generate add immediate instruction
     pub fn addi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, imm);
         self.push(instr);
         self
     }
@@ -208,7 +319,7 @@ impl Riscv64InstructionBuilder {
 
     /// Generate subtract instruction
     pub fn sub(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x20);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x20);
         self.push(instr);
         self
     }
@@ -216,119 +327,119 @@ impl Riscv64InstructionBuilder {
 
     /// Generate subtract immediate instruction
     pub fn subi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, -imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::ADD_SUB, rs1, -imm);
         self.push(instr);
         self
     }
 
     /// Generate XOR instruction
     pub fn xor(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::XOR, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::XOR, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate XOR immediate instruction
     pub fn xori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::XOR, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::XOR, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate OR instruction
     pub fn or(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::OR, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::OR, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate OR immediate instruction
     pub fn ori(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::OR, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::OR, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate Set Less Than instruction
     pub fn slt(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLT, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SLT, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate Set Less Than immediate instruction
     pub fn slti(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLT, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SLT, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate Set Less Than Unsigned instruction
     pub fn sltu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLTU, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SLTU, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate Set Less Than immediate Unsigned instruction
     pub fn sltiu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLTU, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SLTU, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate SLL (Shift Left Logical) instruction
     pub fn sll(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SLL, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SLL, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate SRL (Shift Right Logical) instruction
     pub fn srl(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate SRA (Shift Right Arithmetic) instruction
     pub fn sra(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
         self.push(instr);
         self
     }
 
     /// Generate SLLI (Shift Left Logical Immediate) instruction
     pub fn slli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
         self.push(instr);
         self
     }
 
     /// Generate SRLI (Shift Right Logical Immediate) instruction
     pub fn srli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
         self.push(instr);
         self
     }
 
     /// Generate SRAI (Shift Right Arithmetic Immediate) instruction
     pub fn srai(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, (shamt as i16) | 0x400);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, (shamt as i16) | 0x400);
         self.push(instr);
         self
     }
 
     /// Generate AND instruction
     pub fn and(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, alu_funct3::AND, rs1, rs2, 0x0);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::AND, rs1, rs2, 0x0);
         self.push(instr);
         self
     }
 
     /// Generate AND immediate instruction
     pub fn andi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::OP_IMM, rd, alu_funct3::AND, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::AND, rs1, imm);
         self.push(instr);
         self
     }
@@ -338,7 +449,7 @@ impl Riscv64InstructionBuilder {
     /// Generate MUL (Multiply) instruction
     /// Performs signed multiplication and returns the lower 64 bits of the result
     pub fn mul(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MUL, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MUL, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -346,7 +457,7 @@ impl Riscv64InstructionBuilder {
     /// Generate MULH (Multiply High) instruction
     /// Performs signed × signed multiplication and returns the upper 64 bits of the result
     pub fn mulh(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULH, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULH, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -354,7 +465,7 @@ impl Riscv64InstructionBuilder {
     /// Generate MULHSU (Multiply High Signed × Unsigned) instruction
     /// Performs signed × unsigned multiplication and returns the upper 64 bits of the result
     pub fn mulhsu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULHSU, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULHSU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -362,7 +473,7 @@ impl Riscv64InstructionBuilder {
     /// Generate MULHU (Multiply High Unsigned) instruction
     /// Performs unsigned × unsigned multiplication and returns the upper 64 bits of the result
     pub fn mulhu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULHU, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULHU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -370,7 +481,7 @@ impl Riscv64InstructionBuilder {
     /// Generate DIV (Divide) instruction
     /// Performs signed division: rs1 ÷ rs2
     pub fn div(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::DIV, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIV, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -378,7 +489,7 @@ impl Riscv64InstructionBuilder {
     /// Generate DIVU (Divide Unsigned) instruction
     /// Performs unsigned division: rs1 ÷ rs2
     pub fn divu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::DIVU, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIVU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -386,7 +497,7 @@ impl Riscv64InstructionBuilder {
     /// Generate REM (Remainder) instruction
     /// Computes signed remainder: rs1 % rs2
     pub fn rem(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::REM, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REM, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -394,7 +505,7 @@ impl Riscv64InstructionBuilder {
     /// Generate REMU (Remainder Unsigned) instruction
     /// Computes unsigned remainder: rs1 % rs2
     pub fn remu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = encode_r_type(opcodes::OP, rd, m_funct3::REMU, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REMU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -403,49 +514,49 @@ impl Riscv64InstructionBuilder {
 
     /// Generate LD (Load Doubleword) instruction
     pub fn ld(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LD, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LD, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LW (Load Word) instruction
     pub fn lw(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LW, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LW, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LH (Load Halfword) instruction
     pub fn lh(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LH, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LH, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LB (Load Byte) instruction
     pub fn lb(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LB, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LB, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LBU (Load Byte Unsigned) instruction
     pub fn lbu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LBU, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LBU, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LHU (Load Halfword Unsigned) instruction
     pub fn lhu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LHU, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LHU, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate LWU (Load Word Unsigned) instruction
     pub fn lwu(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::LOAD, rd, load_funct3::LWU, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::LOAD, rd, load_funct3::LWU, rs1, imm);
         self.push(instr);
         self
     }
@@ -467,42 +578,42 @@ impl Riscv64InstructionBuilder {
 
     /// Generate SD (Store Doubleword) instruction
     pub fn sd(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_s_type(opcodes::STORE, store_funct3::SD, rs1, rs2, imm);
+        let instr = self.encode_s_type_tracked(opcodes::STORE, store_funct3::SD, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate SW (Store Word) instruction
     pub fn sw(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_s_type(opcodes::STORE, store_funct3::SW, rs1, rs2, imm);
+        let instr = self.encode_s_type_tracked(opcodes::STORE, store_funct3::SW, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate SH (Store Halfword) instruction
     pub fn sh(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_s_type(opcodes::STORE, store_funct3::SH, rs1, rs2, imm);
+        let instr = self.encode_s_type_tracked(opcodes::STORE, store_funct3::SH, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate SB (Store Byte) instruction
     pub fn sb(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_s_type(opcodes::STORE, store_funct3::SB, rs1, rs2, imm);
+        let instr = self.encode_s_type_tracked(opcodes::STORE, store_funct3::SB, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate LUI (Load Upper Immediate) instruction
     pub fn lui(&mut self, rd: Register, imm: u32) -> &mut Self {
-        let instr = encode_u_type(opcodes::LUI, rd, imm);
+        let instr = self.encode_u_type_tracked(opcodes::LUI, rd, imm);
         self.push(instr);
         self
     }
 
     /// Generate AUIPC (Add Upper Immediate to PC) instruction
     pub fn auipc(&mut self, rd: Register, imm: u32) -> &mut Self {
-        let instr = encode_u_type(opcodes::AUIPC, rd, imm);
+        let instr = self.encode_u_type_tracked(opcodes::AUIPC, rd, imm);
         self.push(instr);
         self
     }
@@ -511,56 +622,56 @@ impl Riscv64InstructionBuilder {
 
     /// Generate JAL (Jump and Link) instruction
     pub fn jal(&mut self, rd: Register, imm: i32) -> &mut Self {
-        let instr = encode_j_type(opcodes::JAL, rd, imm);
+        let instr = self.encode_j_type_tracked(opcodes::JAL, rd, imm);
         self.push(instr);
         self
     }
 
     /// Generate JALR (Jump and Link Register) instruction
     pub fn jalr(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
-        let instr = encode_i_type(opcodes::JALR, rd, 0x0, rs1, imm);
+        let instr = self.encode_i_type_tracked(opcodes::JALR, rd, 0x0, rs1, imm);
         self.push(instr);
         self
     }
 
     /// Generate BEQ (Branch if Equal) instruction
     pub fn beq(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BEQ, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BEQ, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate BNE (Branch if Not Equal) instruction
     pub fn bne(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BNE, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BNE, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate BLT (Branch if Less Than) instruction
     pub fn blt(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLT, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BLT, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate BGE (Branch if Greater or Equal) instruction
     pub fn bge(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGE, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BGE, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate BLTU (Branch if Less Than Unsigned) instruction
     pub fn bltu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BLTU, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BLTU, rs1, rs2, imm);
         self.push(instr);
         self
     }
 
     /// Generate BGEU (Branch if Greater or Equal Unsigned) instruction
     pub fn bgeu(&mut self, rs1: Register, rs2: Register, imm: i16) -> &mut Self {
-        let instr = encode_b_type(opcodes::BRANCH, branch_funct3::BGEU, rs1, rs2, imm);
+        let instr = self.encode_b_type_tracked(opcodes::BRANCH, branch_funct3::BGEU, rs1, rs2, imm);
         self.push(instr);
         self
     }

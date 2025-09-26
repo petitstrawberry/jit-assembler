@@ -1512,3 +1512,206 @@ fn test_natural_call_syntax() {
         assert_eq!(r8, 28);     // 1+2+3+4+5+6+7 = 28
     }
 }
+
+// Register tracking tests
+#[cfg(feature = "register-tracking")]
+mod register_tracking_tests {
+    use super::*;
+    use crate::common::InstructionBuilder;
+    
+    #[test]
+    fn test_basic_r_type_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.add(reg::T0, reg::T1, reg::T2);
+        
+        let usage = builder.register_usage();
+        
+        // Check written registers
+        let written = usage.written_registers();
+        assert_eq!(written.len(), 1);
+        assert!(usage.contains_written_register(&reg::T0));
+        
+        // Check read registers
+        let read = usage.read_registers();
+        assert_eq!(read.len(), 2);
+        assert!(usage.contains_read_register(&reg::T1));
+        assert!(usage.contains_read_register(&reg::T2));
+        
+        // Check total usage
+        assert_eq!(usage.register_count(), 3);
+        assert!(usage.has_used_registers());
+    }
+    
+    #[test]
+    fn test_i_type_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.addi(reg::A0, reg::SP, 16);
+        
+        let usage = builder.register_usage();
+        
+        // A0 is written, SP is read
+        assert!(usage.contains_written_register(&reg::A0));
+        assert!(usage.contains_read_register(&reg::SP));
+        assert_eq!(usage.register_count(), 2);
+        
+        // SP is callee-saved, so stack frame needed if written to
+        assert!(!usage.needs_stack_frame()); // SP only read, not written
+    }
+    
+    #[test]
+    fn test_stack_frame_detection() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        
+        // Only caller-saved registers
+        builder.add(reg::T0, reg::T1, reg::T2);
+        assert!(!builder.register_usage().needs_stack_frame());
+        
+        // Add callee-saved write
+        builder.add(reg::S0, reg::T0, reg::T1);
+        assert!(builder.register_usage().needs_stack_frame());
+    }
+    
+    #[test]
+    fn test_load_store_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        
+        // Load: rd written, rs1 read
+        builder.ld(reg::T0, reg::SP, 8);
+        let usage = builder.register_usage();
+        assert!(usage.contains_written_register(&reg::T0));
+        assert!(usage.contains_read_register(&reg::SP));
+        
+        // Store: rs1 and rs2 read, nothing written
+        builder.clear();
+        builder.sd(reg::SP, reg::T1, -16);
+        let usage = builder.register_usage();
+        assert_eq!(usage.written_registers().len(), 0);
+        assert_eq!(usage.read_registers().len(), 2);
+        assert!(usage.contains_read_register(&reg::SP));
+        assert!(usage.contains_read_register(&reg::T1));
+    }
+    
+    #[test]
+    fn test_m_extension_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.mul(reg::A0, reg::A1, reg::A2);
+        
+        let usage = builder.register_usage();
+        assert!(usage.contains_written_register(&reg::A0));
+        assert!(usage.contains_read_register(&reg::A1));
+        assert!(usage.contains_read_register(&reg::A2));
+        assert_eq!(usage.register_count(), 3);
+    }
+    
+    #[test] 
+    fn test_branch_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.beq(reg::T0, reg::T1, 100);
+        
+        let usage = builder.register_usage();
+        // Branch instructions only read, don't write
+        assert_eq!(usage.written_registers().len(), 0);
+        assert_eq!(usage.read_registers().len(), 2);
+        assert!(usage.contains_read_register(&reg::T0));
+        assert!(usage.contains_read_register(&reg::T1));
+    }
+    
+    #[test]
+    fn test_u_type_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.lui(reg::T0, 0x12345);
+        
+        let usage = builder.register_usage();
+        // U-type only writes to rd, no reads
+        assert_eq!(usage.written_registers().len(), 1);
+        assert_eq!(usage.read_registers().len(), 0);
+        assert!(usage.contains_written_register(&reg::T0));
+    }
+    
+    #[test]
+    fn test_j_type_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.jal(reg::RA, 1000);
+        
+        let usage = builder.register_usage();
+        // JAL writes to rd (return address)
+        assert_eq!(usage.written_registers().len(), 1);
+        assert!(usage.contains_written_register(&reg::RA));
+    }
+    
+    #[test]
+    fn test_csr_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.csrrw(reg::T0, csr::MSTATUS, reg::T1);
+        
+        let usage = builder.register_usage();
+        // CSR instructions: rd written, rs1 read
+        assert!(usage.contains_written_register(&reg::T0));
+        assert!(usage.contains_read_register(&reg::T1));
+        assert_eq!(usage.register_count(), 2);
+    }
+    
+    #[test]
+    fn test_complex_function_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        
+        // Complex function with mixed register usage
+        builder
+            .addi(reg::SP, reg::SP, -16)    // SP written & read (stack allocation)
+            .sd(reg::SP, reg::S0, 8)        // SP, S0 read (save S0)
+            .add(reg::S0, reg::A0, reg::A1) // S0 written, A0, A1 read
+            .mul(reg::T0, reg::S0, reg::A2) // T0 written, S0, A2 read
+            .ld(reg::S0, reg::SP, 8)        // S0 written, SP read (restore S0) 
+            .addi(reg::SP, reg::SP, 16)     // SP written & read (stack deallocation)
+            .add(reg::A0, reg::T0, reg::ZERO); // A0 written, T0, ZERO read
+        
+        let usage = builder.register_usage();
+        
+        // Verify comprehensive tracking
+        assert!(usage.has_used_registers());
+        assert!(usage.needs_stack_frame()); // SP and S0 are written
+        
+        let written = usage.written_registers();
+        let read = usage.read_registers();
+        
+        // Check critical registers are tracked
+        assert!(usage.contains_written_register(&reg::SP));
+        assert!(usage.contains_written_register(&reg::S0));
+        assert!(usage.contains_written_register(&reg::T0));
+        assert!(usage.contains_written_register(&reg::A0));
+        
+        assert!(usage.contains_read_register(&reg::A0));  // Original A0 value
+        assert!(usage.contains_read_register(&reg::A1));
+        assert!(usage.contains_read_register(&reg::A2));
+        
+        // Verify ABI classification
+        let caller_saved_written = usage.caller_saved_written();
+        let callee_saved_written = usage.callee_saved_written();
+        
+        assert!(!caller_saved_written.is_empty());
+        assert!(!callee_saved_written.is_empty());
+        
+        println!("Complex function register usage: {}", usage);
+    }
+    
+    #[test]
+    fn test_register_reuse_tracking() {
+        let mut builder = Riscv64InstructionBuilder::new();
+        
+        // Same register used multiple times in different roles
+        builder
+            .addi(reg::T0, reg::ZERO, 10)   // T0 written, ZERO read
+            .add(reg::T1, reg::T0, reg::T0); // T1 written, T0 read twice
+        
+        let usage = builder.register_usage();
+        
+        // T0 appears as both written and read
+        assert!(usage.contains_written_register(&reg::T0));
+        assert!(usage.contains_read_register(&reg::T0));
+        
+        // But should only count once in total
+        let used = usage.used_registers();
+        let t0_count = used.iter().filter(|&&r| r == reg::T0).count();
+        assert_eq!(t0_count, 1);
+    }
+}
