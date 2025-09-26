@@ -1207,37 +1207,37 @@ fn test_jump_instruction_encoding_correctness() {
 fn test_jump_branch_edge_cases() {
     // Test edge cases near the limits of immediate ranges
     
-    // JAL large positive offset (near limit)
+    // JAL large positive offset (21-bit signed max: +1,048,575)
     let mut builder = Riscv64InstructionBuilder::new();
-    builder.jal(reg::X1, 524286); // Max positive J-type immediate (2^19 - 2)
+    builder.jal(reg::X1, 1048575); // Max positive J-type immediate (2^20 - 1)
     let instructions = builder.instructions();
-    compare_instruction(instructions[0], "jal x1, .+524286\n");
+    compare_instruction(instructions[0], "jal x1, .+1048575\n");
     
-    // JAL large negative offset (near limit)
+    // JAL large negative offset (21-bit signed min: -1,048,576)
     let mut builder2 = Riscv64InstructionBuilder::new();
-    builder2.jal(reg::X1, -524288); // Min negative J-type immediate (-2^19)
+    builder2.jal(reg::X1, -1048576); // Min negative J-type immediate (-2^20)
     let instructions2 = builder2.instructions();
-    compare_instruction(instructions2[0], "jal x1, .-524288\n");
+    compare_instruction(instructions2[0], "jal x1, .-1048576\n");
     
-    // JALR maximum positive immediate
+    // JALR maximum positive immediate (12-bit signed max: +2,047)
     let mut builder3 = Riscv64InstructionBuilder::new();
     builder3.jalr(reg::X0, reg::X1, 2047); // Max positive JALR immediate
     let instructions3 = builder3.instructions();
     compare_instruction(instructions3[0], "jalr x0, x1, 2047\n");
     
-    // JALR maximum negative immediate
+    // JALR maximum negative immediate (12-bit signed min: -2,048)
     let mut builder4 = Riscv64InstructionBuilder::new();
     builder4.jalr(reg::X0, reg::X1, -2048); // Min negative JALR immediate
     let instructions4 = builder4.instructions();
     compare_instruction(instructions4[0], "jalr x0, x1, -2048\n");
     
-    // Branch maximum positive offset
+    // Branch maximum positive offset (13-bit signed max: +4,095)
     let mut builder5 = Riscv64InstructionBuilder::new();
-    builder5.beq(reg::X1, reg::X2, 4094); // Max positive branch immediate
+    builder5.beq(reg::X1, reg::X2, 4095); // Max positive branch immediate
     let instructions5 = builder5.instructions();
-    compare_instruction(instructions5[0], "beq x1, x2, .+4094\n");
+    compare_instruction(instructions5[0], "beq x1, x2, .+4095\n");
     
-    // Branch maximum negative offset
+    // Branch maximum negative offset (13-bit signed min: -4,096)
     let mut builder6 = Riscv64InstructionBuilder::new();
     builder6.beq(reg::X1, reg::X2, -4096); // Min negative branch immediate  
     let instructions6 = builder6.instructions();
@@ -1248,7 +1248,7 @@ fn test_jump_branch_edge_cases() {
 #[test]
 fn test_branch_instructions_comprehensive() {
     // Test branch instruction edge cases and ranges
-    // Branch instructions have 13-bit signed immediate range: -4096 to +4094 (even only)
+    // Branch instructions have 13-bit signed immediate range: -4096 to +4095 (even only)
     
     let branch_test_cases = vec![
         (0, "."),           // Zero offset (branch to self)
