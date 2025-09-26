@@ -52,7 +52,6 @@ jobs:
         docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev bash -c "
           echo 'Testing JIT Calculator example compilation...' &&
           cargo build --example jit_calculator &&
-          cargo build --example t0_register_test &&
           echo 'Example compilation successful!'
         "
       timeout-minutes: 3
