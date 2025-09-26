@@ -481,9 +481,19 @@ impl JitCalculator {
             println!("Enter expression:");
             
             let mut input = String::new();
-            if std::io::stdin().read_line(&mut input).is_err() {
-                println!("❌ Error reading input");
-                continue;
+            match std::io::stdin().read_line(&mut input) {
+                Ok(0) => {
+                    // EOF reached
+                    println!("👋 End of input reached. Goodbye!");
+                    break;
+                }
+                Ok(_) => {
+                    // Successfully read input
+                }
+                Err(_) => {
+                    println!("❌ Error reading input");
+                    continue;
+                }
             }
 
             let input = input.trim();
