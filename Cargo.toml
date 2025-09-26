@@ -14,7 +14,7 @@ readme = "README.md"
 
 [dependencies]
 jit-allocator2 = { version = "0.2", optional = true }
-hashbrown = { version = "0.14", default-features = false, optional = true }
+hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"]}
 
 [features]
 default = ["std", "riscv"]
