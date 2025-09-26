@@ -273,6 +273,24 @@ pub mod alu_funct3 {
     pub const AND: u8 = 0x7;
 }
 
+/// M Extension (Multiply/Divide) instruction function codes
+/// All M-extension instructions use funct7 = 0x01 and opcode = OP (0x33)
+pub mod m_funct3 {
+    pub const MUL: u8 = 0x0;      // Multiply (low 64 bits)
+    pub const MULH: u8 = 0x1;     // Multiply high (signed × signed)
+    pub const MULHSU: u8 = 0x2;   // Multiply high (signed × unsigned)
+    pub const MULHU: u8 = 0x3;    // Multiply high (unsigned × unsigned)
+    pub const DIV: u8 = 0x4;      // Divide (signed)
+    pub const DIVU: u8 = 0x5;     // Divide (unsigned)
+    pub const REM: u8 = 0x6;      // Remainder (signed)
+    pub const REMU: u8 = 0x7;     // Remainder (unsigned)
+}
+
+/// M Extension funct7 code
+pub mod m_funct7 {
+    pub const M_EXT: u8 = 0x01;
+}
+
 /// Common CSR addresses
 pub mod csr {
     use super::Csr;

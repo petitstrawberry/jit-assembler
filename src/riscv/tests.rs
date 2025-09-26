@@ -37,7 +37,7 @@ fn assemble_riscv(assembly: &str) -> Vec<u8> {
     
     // Assemble the file
     let output = Command::new("riscv64-linux-gnu-as")
-        .args(&["-march=rv64i", &asm_file.to_string_lossy(), "-o", &obj_file.to_string_lossy()])
+        .args(&["-march=rv64im", &asm_file.to_string_lossy(), "-o", &obj_file.to_string_lossy()])
         .output()
         .expect("Failed to run assembler");
         
@@ -328,6 +328,136 @@ fn test_arithmetic_instructions() {
 
     let instructions = builder.instructions();
     assert_eq!(instructions.len(), 13);
+}
+
+#[test]
+fn test_m_extension_instructions() {
+    let mut builder = Riscv64InstructionBuilder::new();
+    
+    // Test multiplication instructions
+    builder.mul(reg::X1, reg::X2, reg::X3);       // MUL
+    builder.mulh(reg::X4, reg::X5, reg::X6);      // MULH
+    builder.mulhsu(reg::X7, reg::X8, reg::X9);    // MULHSU
+    builder.mulhu(reg::X10, reg::X11, reg::X12);  // MULHU
+    
+    // Test division instructions
+    builder.div(reg::X13, reg::X14, reg::X15);    // DIV
+    builder.divu(reg::X16, reg::X17, reg::X18);   // DIVU
+    
+    // Test remainder instructions
+    builder.rem(reg::X19, reg::X20, reg::X21);    // REM
+    builder.remu(reg::X22, reg::X23, reg::X24);   // REMU
+
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 8);
+    
+    // Test that all instructions are properly encoded
+    for instr in instructions.iter() {
+        assert_eq!(instr.size(), 4); // All M extension instructions are 32-bit
+        assert!(!instr.is_compressed());
+    }
+}
+
+#[cfg(feature = "std")]
+#[test] 
+fn test_m_extension_binary_correctness() {
+    let mut builder = Riscv64InstructionBuilder::new();
+    
+    // Test MUL instruction: mul x1, x2, x3
+    builder.mul(reg::X1, reg::X2, reg::X3);
+    let instructions = builder.instructions();
+    let bytes = instructions.to_bytes();
+    
+    // Expected encoding for MUL x1, x2, x3:
+    // opcode=0x33 (OP), rd=1, funct3=0x0 (MUL), rs1=2, rs2=3, funct7=0x01 (M_EXT)
+    // 31-25: funct7=0x01, 24-20: rs2=3, 19-15: rs1=2, 14-12: funct3=0x0, 11-7: rd=1, 6-0: opcode=0x33
+    // 0000001 00011 00010 000 00001 0110011 = 0x023100B3
+    let expected_mul = vec![0xB3, 0x00, 0x31, 0x02]; // little-endian
+    assert_eq!(bytes, expected_mul);
+    
+    // Test DIV instruction: div x4, x5, x6  
+    let mut builder2 = Riscv64InstructionBuilder::new();
+    builder2.div(reg::X4, reg::X5, reg::X6);
+    let instructions2 = builder2.instructions();
+    let bytes2 = instructions2.to_bytes();
+    
+    // Expected encoding for DIV x4, x5, x6:
+    // 31-25: funct7=0x01, 24-20: rs2=6, 19-15: rs1=5, 14-12: funct3=0x4, 11-7: rd=4, 6-0: opcode=0x33
+    // 0000001 00110 00101 100 00100 0110011 = 0x0262C233
+    let expected_div = vec![0x33, 0xC2, 0x62, 0x02]; // little-endian
+    assert_eq!(bytes2, expected_div);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_m_extension() {
+    // Test MUL instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mul(reg::X1, reg::X2, reg::X3);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "mul x1, x2, x3\n");
+    
+    // Test MULH instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mulh(reg::X4, reg::X5, reg::X6);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "mulh x4, x5, x6\n");
+    
+    // Test MULHSU instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mulhsu(reg::X7, reg::X8, reg::X9);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "mulhsu x7, x8, x9\n");
+    
+    // Test MULHU instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mulhu(reg::X10, reg::X11, reg::X12);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "mulhu x10, x11, x12\n");
+    
+    // Test DIV instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.div(reg::X13, reg::X14, reg::X15);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "div x13, x14, x15\n");
+    
+    // Test DIVU instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.divu(reg::X16, reg::X17, reg::X18);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "divu x16, x17, x18\n");
+    
+    // Test REM instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.rem(reg::X19, reg::X20, reg::X21);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "rem x19, x20, x21\n");
+    
+    // Test REMU instruction
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.remu(reg::X22, reg::X23, reg::X24);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "remu x22, x23, x24\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_multiline_m_extension() {
+    // Test multiple M extension instructions together
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.mul(reg::X1, reg::X2, reg::X3);
+    builder.div(reg::X4, reg::X1, reg::X2);
+    builder.rem(reg::X5, reg::X4, reg::X3);
+    builder.mulh(reg::X6, reg::X5, reg::X4);
+    
+    let instructions = builder.instructions();
+    let assembly = r"
+mul x1, x2, x3
+div x4, x1, x2
+rem x5, x4, x3
+mulh x6, x5, x4
+";
+    compare_instructions(&instructions, assembly);
 }
 
 // Example of how this would be used in codegen

@@ -333,6 +333,72 @@ impl Riscv64InstructionBuilder {
         self
     }
 
+    // M Extension (Multiply/Divide) instructions
+
+    /// Generate MUL (Multiply) instruction
+    /// Performs signed multiplication and returns the lower 64 bits of the result
+    pub fn mul(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MUL, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate MULH (Multiply High) instruction
+    /// Performs signed × signed multiplication and returns the upper 64 bits of the result
+    pub fn mulh(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULH, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate MULHSU (Multiply High Signed × Unsigned) instruction
+    /// Performs signed × unsigned multiplication and returns the upper 64 bits of the result
+    pub fn mulhsu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULHSU, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate MULHU (Multiply High Unsigned) instruction
+    /// Performs unsigned × unsigned multiplication and returns the upper 64 bits of the result
+    pub fn mulhu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::MULHU, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate DIV (Divide) instruction
+    /// Performs signed division: rs1 ÷ rs2
+    pub fn div(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::DIV, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate DIVU (Divide Unsigned) instruction
+    /// Performs unsigned division: rs1 ÷ rs2
+    pub fn divu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::DIVU, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate REM (Remainder) instruction
+    /// Computes signed remainder: rs1 % rs2
+    pub fn rem(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::REM, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
+    /// Generate REMU (Remainder Unsigned) instruction
+    /// Computes unsigned remainder: rs1 % rs2
+    pub fn remu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
+        let instr = encode_r_type(opcodes::OP, rd, m_funct3::REMU, rs1, rs2, m_funct7::M_EXT);
+        self.push(instr);
+        self
+    }
+
     // Load/Store instructions
 
     /// Generate LD (Load Doubleword) instruction
