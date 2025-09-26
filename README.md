@@ -11,6 +11,7 @@ A multi-architecture JIT assembler library for runtime code generation that work
 - **Dual API**: Both macro-based DSL and builder pattern for different use cases
 - **IDE-friendly**: Full autocomplete and type checking support
 - **JIT execution**: Direct execution of assembled code as functions (std-only)
+- **Register usage tracking**: Analyze register usage patterns for optimization and ABI compliance (`register-tracking` feature)
 
 ## Supported Architectures
 
@@ -91,17 +92,24 @@ jit-assembler = { version = "0.1", default-features = false, features = ["riscv"
 
 The RISC-V backend supports:
 
+- **Base integer instruction set (RV64I)**:
+  - **Arithmetic**: `add`, `sub`, `addi`, `xor`, `or`, `and`, `slt`, `sltu`
+  - **Immediate arithmetic**: `andi`, `ori`, `xori`, `slti`, `sltiu`
+  - **Shifts**: `sll`, `srl`, `sra`, `slli`, `srli`, `srai`
+  - **Upper immediates**: `lui`, `auipc`
+- **M extension (Integer Multiplication and Division)**:
+  - **Multiply**: `mul`, `mulh`, `mulhsu`, `mulhu`
+  - **Divide**: `div`, `divu`, `rem`, `remu`
+- **Memory operations**:
+  - **Loads (signed)**: `ld`, `lw`, `lh`, `lb`
+  - **Loads (unsigned)**: `lbu`, `lhu`, `lwu`
+  - **Stores**: `sd`, `sw`, `sh`, `sb`
+- **Control flow**: `jal`, `jalr`, `beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`
 - **CSR instructions**: `csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`
 - **CSR pseudo-instructions**: `csrr` (read), `csrw` (write), `csrs` (set), `csrc` (clear), `csrwi`, `csrsi`, `csrci`
-- **Arithmetic**: `add`, `sub`, `addi`, `xor`, `or`, `and`, `slt`, `sltu`
-- **Immediate arithmetic**: `andi`, `ori`, `xori`, `slti`, `sltiu`
-- **Control flow**: `jal`, `jalr`, `beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`
-- **Memory (signed)**: `ld`, `lw`, `lh`, `lb`, `sd`, `sw`, `sh`, `sb`
-- **Memory (unsigned)**: `lbu`, `lhu`, `lwu`
-- **Shifts**: `sll`, `srl`, `sra`, `slli`, `srli`, `srai`
-- **Upper immediates**: `lui`, `auipc`
 - **Privileged instructions**: `sret`, `mret`, `ecall`, `ebreak`, `wfi`
 - **Pseudo-instructions**: `ret`, `li`
+- **Register usage tracking**: Full tracking support for all instruction types (`register-tracking` feature)
 
 ### Future Architectures
 
@@ -184,6 +192,74 @@ assert_eq!(result, 42);
 - Automatic memory management with `jit-allocator2`
 - Natural function call syntax: `func.call()`, `func.call(arg)`, `func.call(arg1, arg2)`, etc. - just like regular functions!
 - Cross-platform executable memory allocation
+
+## Register Usage Tracking
+
+The `register-tracking` feature enables comprehensive analysis of register usage patterns in your JIT-compiled code, helping with optimization and ABI compliance.
+
+### Enable Register Tracking
+
+Add the feature to your `Cargo.toml`:
+
+```toml
+[dependencies]
+jit-assembler = { version = "0.1", features = ["register-tracking"] }
+```
+
+### Usage Example
+
+```rust
+use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
+
+let mut builder = Riscv64InstructionBuilder::new();
+
+// Build a function that uses various registers
+builder
+    .add(reg::T0, reg::T1, reg::T2)     // T0 written, T1+T2 read
+    .addi(reg::T3, reg::SP, 16)         // T3 written, SP read
+    .mul(reg::A0, reg::A1, reg::A2)     // A0 written, A1+A2 read
+    .ld(reg::S0, reg::T0, 8)            // S0 written, T0 read
+    .sd(reg::SP, reg::S1, -16);         // SP+S1 read
+
+// Analyze register usage
+let usage = builder.register_usage();
+
+println!("=== Register Usage Analysis ===");
+println!("Total registers used: {}", usage.register_count());
+println!("Written registers: {:?}", usage.written_registers());
+println!("Read registers: {:?}", usage.read_registers());
+
+// ABI compliance analysis
+println!("Caller-saved (written): {:?}", usage.caller_saved_written());
+println!("Callee-saved (written): {:?}", usage.callee_saved_written());
+println!("Needs stack frame: {}", usage.needs_stack_frame());
+
+// Detailed breakdown
+let (caller, callee, special) = usage.count_by_abi_class();
+println!("ABI breakdown - Caller: {}, Callee: {}, Special: {}", 
+         caller, callee, special);
+```
+
+### Key Features
+
+- **Separate tracking**: Distinguishes between written (def) and read (use) registers
+- **ABI classification**: Automatically categorizes registers as caller-saved, callee-saved, or special-purpose
+- **Stack frame analysis**: Determines if function prologue/epilogue is needed based on callee-saved register usage
+- **Comprehensive coverage**: Tracks all RISC-V instruction types (R, I, S, B, U, J, CSR)
+- **No-std compatible**: Uses `hashbrown` for no-std environments
+
+### Register ABI Classification (RISC-V)
+
+- **Caller-saved**: T0-T6, A0-A7, RA - Can be freely used without preservation
+- **Callee-saved**: S0-S11, SP - Must be saved/restored if modified
+- **Special**: X0 (zero), GP, TP - Require careful handling
+
+This information is invaluable for:
+- **Register allocation**: Choose optimal registers for variables
+- **ABI compliance**: Ensure proper calling convention adherence
+- **Performance optimization**: Minimize unnecessary register saves/restores
+- **Code analysis**: Understand register pressure and usage patterns
 
 ## Contributing
 
