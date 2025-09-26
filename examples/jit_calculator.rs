@@ -615,3 +615,191 @@ fn print_help() {
     println!("    cargo run --example jit_calculator --show-machine-code");
     println!("    cargo run --example jit_calculator -m");
 }
+
+/// RISC-V64 Integration Tests for JIT Calculator
+/// 
+/// This module contains tests that only run on RISC-V64 platforms
+/// to verify that the JIT calculator works correctly with actual execution.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test basic arithmetic operations on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_basic_arithmetic() {
+        let config = CalculatorConfig::default();
+        
+        // Test addition
+        let result = JitCalculator::evaluate("10 + 5", &config).expect("Addition failed");
+        assert_eq!(result, 15);
+        
+        // Test subtraction
+        let result = JitCalculator::evaluate("20 - 8", &config).expect("Subtraction failed");
+        assert_eq!(result, 12);
+        
+        // Test multiplication (M extension)
+        let result = JitCalculator::evaluate("7 * 6", &config).expect("Multiplication failed");
+        assert_eq!(result, 42);
+        
+        // Test division (M extension)
+        let result = JitCalculator::evaluate("84 / 12", &config).expect("Division failed");
+        assert_eq!(result, 7);
+        
+        // Test remainder (M extension)
+        let result = JitCalculator::evaluate("23 % 7", &config).expect("Remainder failed");
+        assert_eq!(result, 2);
+    }
+
+    /// Test complex expressions with operator precedence on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_complex_expressions() {
+        let config = CalculatorConfig::default();
+        
+        // Test operator precedence
+        let result = JitCalculator::evaluate("2 + 3 * 4", &config).expect("Precedence test failed");
+        assert_eq!(result, 14);
+        
+        // Test parentheses
+        let result = JitCalculator::evaluate("(2 + 3) * 4", &config).expect("Parentheses test failed");
+        assert_eq!(result, 20);
+        
+        // Test nested expressions
+        let result = JitCalculator::evaluate("100 / (10 - 5)", &config).expect("Nested expression failed");
+        assert_eq!(result, 20);
+        
+        // Test complex nested expression
+        let result = JitCalculator::evaluate("((10 + 5) * 2) - 6", &config).expect("Complex expression failed");
+        assert_eq!(result, 24);
+        
+        // Test multiple operations
+        let result = JitCalculator::evaluate("2 * 3 + 4 * 5", &config).expect("Multiple operations failed");
+        assert_eq!(result, 26);
+    }
+
+    /// Test edge cases on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_edge_cases() {
+        let config = CalculatorConfig::default();
+        
+        // Test single number
+        let result = JitCalculator::evaluate("42", &config).expect("Single number failed");
+        assert_eq!(result, 42);
+        
+        // Test zero
+        let result = JitCalculator::evaluate("0", &config).expect("Zero failed");
+        assert_eq!(result, 0);
+        
+        // Test large numbers
+        let result = JitCalculator::evaluate("1000 + 2000", &config).expect("Large numbers failed");
+        assert_eq!(result, 3000);
+        
+        // Test deeply nested parentheses
+        let result = JitCalculator::evaluate("(((2 + 3) * 4) + 5) * 6", &config).expect("Deep nesting failed");
+        assert_eq!(result, 150); // ((5 * 4) + 5) * 6 = (20 + 5) * 6 = 25 * 6 = 150
+    }
+
+    /// Test register allocation with complex expressions on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_register_allocation() {
+        let config = CalculatorConfig::default();
+        
+        // Test expressions that would stress register allocation
+        let test_cases = vec![
+            ("1 + 2 + 3 + 4 + 5", 15),
+            ("1 * 2 * 3 * 4 * 5", 120),
+            ("((1 + 2) * (3 + 4)) + ((5 + 6) * (7 + 8))", 186),
+            ("10 + 20 * 30 - 40 / 10 + 50 % 7", 607), // 10 + 600 - 4 + 1 = 607
+        ];
+        
+        for (expression, expected) in test_cases {
+            let result = JitCalculator::evaluate(expression, &config)
+                .expect(&format!("Expression '{}' failed", expression));
+            assert_eq!(result, expected, "Expression '{}' returned {} instead of {}", expression, result, expected);
+        }
+    }
+
+    /// Test M extension instructions specifically on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_m_extension() {
+        let config = CalculatorConfig::default();
+        
+        // Test various multiplication cases
+        let mul_cases = vec![
+            ("0 * 100", 0),
+            ("1 * 1", 1),
+            ("12 * 12", 144),
+            ("255 * 256", 65280),
+        ];
+        
+        for (expr, expected) in mul_cases {
+            let result = JitCalculator::evaluate(expr, &config).expect("Multiplication test failed");
+            assert_eq!(result, expected, "Multiplication: {} should equal {}", expr, expected);
+        }
+        
+        // Test division cases
+        let div_cases = vec![
+            ("100 / 10", 10),
+            ("1 / 1", 1),
+            ("144 / 12", 12),
+            ("65280 / 256", 255),
+        ];
+        
+        for (expr, expected) in div_cases {
+            let result = JitCalculator::evaluate(expr, &config).expect("Division test failed");
+            assert_eq!(result, expected, "Division: {} should equal {}", expr, expected);
+        }
+        
+        // Test remainder cases
+        let rem_cases = vec![
+            ("10 % 3", 1),
+            ("100 % 7", 2),
+            ("255 % 16", 15),
+            ("1000 % 37", 1), // 1000 = 27 * 37 + 1
+        ];
+        
+        for (expr, expected) in rem_cases {
+            let result = JitCalculator::evaluate(expr, &config).expect("Remainder test failed");
+            assert_eq!(result, expected, "Remainder: {} should equal {}", expr, expected);
+        }
+    }
+
+    /// Benchmark-style test to ensure JIT compilation is working on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_jit_compilation_performance() {
+        let config = CalculatorConfig::default();
+        
+        // Create the same calculation multiple times to ensure JIT is actually working
+        let expression = "(123 + 456) * (789 - 456) + 999";
+        let expected = (123 + 456) * (789 - 456) + 999; // Calculate expected result
+        
+        // Run multiple times to verify consistency
+        for i in 1..=10 {
+            let result = JitCalculator::evaluate(expression, &config)
+                .expect(&format!("JIT test iteration {} failed", i));
+            assert_eq!(result, expected, "JIT compilation inconsistent at iteration {}", i);
+        }
+    }
+
+    /// Test machine code generation output on RISC-V64
+    #[test]
+    #[cfg(target_arch = "riscv64")]
+    fn test_riscv64_machine_code_generation() {
+        let mut config = CalculatorConfig::default();
+        config.show_machine_code = true;
+        
+        // Test that machine code display doesn't break execution
+        let result = JitCalculator::evaluate("42 + 13", &config).expect("Machine code test failed");
+        assert_eq!(result, 55);
+        
+        // Test with complex expression
+        let result = JitCalculator::evaluate("(10 * 5) + (20 / 4)", &config).expect("Complex machine code test failed");
+        assert_eq!(result, 55); // 50 + 5 = 55
+    }
+}
