@@ -5,7 +5,7 @@ use jit_assembler::common::InstructionBuilder;
 fn main() {
     let mut builder = Riscv64InstructionBuilder::new();
     
-    // いくつかの命令を追加
+    // Add some instructions
     builder
         .add(reg::T0, reg::T1, reg::T2)     // T0, T1, T2を使用
         .addi(reg::T3, reg::SP, 16)         // T3, SPを使用
