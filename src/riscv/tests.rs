@@ -1126,6 +1126,288 @@ fn test_binary_correctness_branches() {
     compare_instruction(instructions[0], "bgeu x11, x12, .\n");
 }
 
+#[test]
+fn test_jump_instructions_comprehensive() {
+    // Test various jump instruction edge cases and ranges
+    
+    // JAL instruction tests with different immediate values
+    let test_cases = vec![
+        0,         // Zero offset (branch to self)
+        2,         // Minimum positive even offset  
+        4,         // Small positive offset
+        100,       // Medium positive offset
+        1000,      // Larger positive offset
+        524286,    // Maximum positive J-type immediate (2^19 - 2)
+        -2,        // Minimum negative even offset
+        -4,        // Small negative offset
+        -100,      // Medium negative offset
+        -1000,     // Larger negative offset
+        -524288,   // Minimum negative J-type immediate (-2^19)
+    ];
+    
+    for imm in test_cases {
+        // Test JAL instruction
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.jal(reg::X1, imm);
+        let instructions = builder.instructions();
+        assert_eq!(instructions.len(), 1, "JAL should generate exactly one instruction");
+        
+        // Verify the instruction is not zero (should contain valid encoding)
+        match instructions[0] {
+            super::instruction::Instruction::Standard(instr) => {
+                assert_ne!(instr, 0, "JAL instruction should not be zero for imm={}", imm);
+                // Verify opcode is correct (lower 7 bits should be JAL opcode 0x6f)
+                assert_eq!(instr & 0x7f, 0x6f, "JAL opcode should be 0x6f for imm={}", imm);
+                // Verify rd field (bits 7-11) contains X1 register (value 1)
+                assert_eq!((instr >> 7) & 0x1f, 1, "JAL rd should be X1 (1) for imm={}", imm);
+            }
+            _ => panic!("JAL should generate a Standard instruction"),
+        }
+    }
+    
+    // JALR instruction tests with different immediate values (12-bit range: -2048 to 2047)
+    let jalr_test_cases = vec![
+        0,      // Zero offset
+        1,      // Small positive offset (odd is OK for JALR)
+        4,      // Small positive even offset
+        100,    // Medium positive offset
+        1000,   // Large positive offset
+        2047,   // Maximum positive JALR immediate
+        -1,     // Small negative offset (odd is OK for JALR)
+        -4,     // Small negative even offset
+        -100,   // Medium negative offset
+        -1000,  // Large negative offset
+        -2048,  // Minimum negative JALR immediate
+    ];
+    
+    for imm in jalr_test_cases {
+        // Test JALR instruction
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.jalr(reg::X0, reg::X1, imm);
+        let instructions = builder.instructions();
+        assert_eq!(instructions.len(), 1, "JALR should generate exactly one instruction");
+        
+        // Verify the instruction is not zero
+        match instructions[0] {
+            super::instruction::Instruction::Standard(instr) => {
+                assert_ne!(instr, 0, "JALR instruction should not be zero for imm={}", imm);
+                // Verify opcode is correct (lower 7 bits should be JALR opcode 0x67)
+                assert_eq!(instr & 0x7f, 0x67, "JALR opcode should be 0x67 for imm={}", imm);
+                // Verify rd field (bits 7-11) contains X0 register (value 0)
+                assert_eq!((instr >> 7) & 0x1f, 0, "JALR rd should be X0 (0) for imm={}", imm);
+                // Verify rs1 field (bits 15-19) contains X1 register (value 1)
+                assert_eq!((instr >> 15) & 0x1f, 1, "JALR rs1 should be X1 (1) for imm={}", imm);
+            }
+            _ => panic!("JALR should generate a Standard instruction"),
+        }
+    }
+}
+
+#[test]
+fn test_jump_instruction_encoding_correctness() {
+    // Test specific known encodings to verify correctness
+    
+    // JAL x1, 0 should encode to specific bit pattern
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.jal(reg::X1, 0);
+    let instructions = builder.instructions();
+    
+    match instructions[0] {
+        super::instruction::Instruction::Standard(instr) => {
+            // JAL opcode is 0x6f, rd=1, imm=0
+            // Let's verify the basic structure first
+            assert_eq!(instr & 0x7f, 0x6f, "JAL opcode should be 0x6f");
+            assert_eq!((instr >> 7) & 0x1f, 1, "JAL rd should be X1 (1)");
+            // For zero immediate, all immediate bits should be 0
+            let imm_20 = (instr >> 31) & 0x1;
+            let imm_10_1 = (instr >> 21) & 0x3ff;
+            let imm_11 = (instr >> 20) & 0x1;
+            let imm_19_12 = (instr >> 12) & 0xff;
+            assert_eq!(imm_20, 0, "imm[20] should be 0 for zero offset");
+            assert_eq!(imm_10_1, 0, "imm[10:1] should be 0 for zero offset");
+            assert_eq!(imm_11, 0, "imm[11] should be 0 for zero offset");
+            assert_eq!(imm_19_12, 0, "imm[19:12] should be 0 for zero offset");
+        }
+        _ => panic!("JAL should generate Standard instruction"),
+    }
+    
+    // JALR x0, x1, 0 should encode to specific bit pattern
+    let mut builder2 = Riscv64InstructionBuilder::new();
+    builder2.jalr(reg::X0, reg::X1, 0);
+    let instructions2 = builder2.instructions();
+    
+    match instructions2[0] {
+        super::instruction::Instruction::Standard(instr) => {
+            // JALR x0, x1, 0: opcode=0x67, rd=0, funct3=0, rs1=1, imm=0
+            assert_eq!(instr & 0x7f, 0x67, "JALR opcode should be 0x67");
+            assert_eq!((instr >> 7) & 0x1f, 0, "JALR rd should be X0 (0)");
+            assert_eq!((instr >> 12) & 0x7, 0, "JALR funct3 should be 0");
+            assert_eq!((instr >> 15) & 0x1f, 1, "JALR rs1 should be X1 (1)");
+            assert_eq!((instr >> 20) & 0xfff, 0, "JALR imm should be 0");
+        }
+        _ => panic!("JALR should generate Standard instruction"),
+    }
+    
+    // Test JAL with small positive offset
+    let mut builder3 = Riscv64InstructionBuilder::new();
+    builder3.jal(reg::X1, 4);
+    let instructions3 = builder3.instructions();
+    
+    match instructions3[0] {
+        super::instruction::Instruction::Standard(instr) => {
+            // JAL x1, 4: The immediate 4 should be encoded in J-type format
+            // Verify opcode and register are correct
+            assert_eq!(instr & 0x7f, 0x6f, "JAL opcode should be 0x6f");
+            assert_eq!((instr >> 7) & 0x1f, 1, "JAL rd should be X1 (1)");
+            // Verify immediate bits: for offset 4, bit 2 should be set in imm[10:1] field
+            let imm_10_1 = (instr >> 21) & 0x3ff;
+            assert_eq!(imm_10_1, 0x2, "For offset 4, imm[10:1] should be 0x2");
+        }
+        _ => panic!("JAL should generate Standard instruction"),
+    }
+    
+    // Test JALR with positive offset
+    let mut builder4 = Riscv64InstructionBuilder::new();
+    builder4.jalr(reg::X2, reg::X3, 8);
+    let instructions4 = builder4.instructions();
+    
+    match instructions4[0] {
+        super::instruction::Instruction::Standard(instr) => {
+            // JALR x2, x3, 8: opcode=0x67, rd=2, funct3=0, rs1=3, imm=8
+            assert_eq!(instr & 0x7f, 0x67, "JALR opcode should be 0x67");
+            assert_eq!((instr >> 7) & 0x1f, 2, "JALR rd should be X2 (2)");
+            assert_eq!((instr >> 15) & 0x1f, 3, "JALR rs1 should be X3 (3)");
+            // Verify immediate field (bits 31:20)
+            let imm_field = (instr >> 20) & 0xfff;
+            assert_eq!(imm_field, 8, "JALR imm field should contain 8");
+        }
+        _ => panic!("JALR should generate Standard instruction"),
+    }
+    
+    // Test negative offset encoding
+    let mut builder5 = Riscv64InstructionBuilder::new();
+    builder5.jal(reg::X1, -4);
+    let instructions5 = builder5.instructions();
+    
+    match instructions5[0] {
+        super::instruction::Instruction::Standard(instr) => {
+            assert_eq!(instr & 0x7f, 0x6f, "JAL opcode should be 0x6f");
+            assert_eq!((instr >> 7) & 0x1f, 1, "JAL rd should be X1 (1)");
+            // For negative offset, sign bit (imm[20]) should be set
+            let imm_20 = (instr >> 31) & 0x1;
+            assert_eq!(imm_20, 1, "imm[20] should be 1 for negative offset");
+        }
+        _ => panic!("JAL should generate Standard instruction"),
+    }
+}
+
+#[test]
+fn test_branch_instructions_comprehensive() {
+    // Test branch instruction edge cases and ranges
+    // Branch instructions have 13-bit signed immediate range: -4096 to +4094 (even only)
+    
+    let branch_test_cases = vec![
+        0,        // Zero offset (branch to self)
+        2,        // Minimum positive even offset
+        4,        // Small positive offset
+        100,      // Medium positive offset
+        1000,     // Large positive offset
+        4094,     // Maximum positive branch immediate (2^12 - 2)
+        -2,       // Minimum negative even offset
+        -4,       // Small negative offset
+        -100,     // Medium negative offset
+        -1000,    // Large negative offset
+        -4096,    // Minimum negative branch immediate (-2^12)
+    ];
+    
+    for imm in branch_test_cases {
+        // Test BEQ instruction (funct3 = 0x0)
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.beq(reg::X1, reg::X2, imm);
+        let instructions = builder.instructions();
+        assert_eq!(instructions.len(), 1, "BEQ should generate exactly one instruction");
+        
+        match instructions[0] {
+            super::instruction::Instruction::Standard(instr) => {
+                assert_ne!(instr, 0, "BEQ instruction should not be zero for imm={}", imm);
+                assert_eq!(instr & 0x7f, 0x63, "BEQ opcode should be 0x63 for imm={}", imm);
+                assert_eq!((instr >> 12) & 0x7, 0x0, "BEQ funct3 should be 0x0 for imm={}", imm);
+                assert_eq!((instr >> 15) & 0x1f, 1, "BEQ rs1 should be X1 (1) for imm={}", imm);
+                assert_eq!((instr >> 20) & 0x1f, 2, "BEQ rs2 should be X2 (2) for imm={}", imm);
+            }
+            _ => panic!("BEQ should generate a Standard instruction"),
+        }
+        
+        // Test BNE instruction (funct3 = 0x1)
+        let mut builder2 = Riscv64InstructionBuilder::new();
+        builder2.bne(reg::X3, reg::X4, imm);
+        let instructions2 = builder2.instructions();
+        assert_eq!(instructions2.len(), 1, "BNE should generate exactly one instruction");
+        
+        match instructions2[0] {
+            super::instruction::Instruction::Standard(instr) => {
+                assert_ne!(instr, 0, "BNE instruction should not be zero for imm={}", imm);
+                assert_eq!(instr & 0x7f, 0x63, "BNE opcode should be 0x63 for imm={}", imm);
+                assert_eq!((instr >> 12) & 0x7, 0x1, "BNE funct3 should be 0x1 for imm={}", imm);
+                assert_eq!((instr >> 15) & 0x1f, 3, "BNE rs1 should be X3 (3) for imm={}", imm);
+                assert_eq!((instr >> 20) & 0x1f, 4, "BNE rs2 should be X4 (4) for imm={}", imm);
+            }
+            _ => panic!("BNE should generate a Standard instruction"),
+        }
+        
+        // Test other branch instructions for completeness
+        if imm % 10 == 0 { // Test only some cases to avoid too much repetition
+            // Test BLT instruction (funct3 = 0x4)
+            let mut builder3 = Riscv64InstructionBuilder::new();
+            builder3.blt(reg::X5, reg::X6, imm);
+            let instructions3 = builder3.instructions();
+            match instructions3[0] {
+                super::instruction::Instruction::Standard(instr) => {
+                    assert_eq!(instr & 0x7f, 0x63, "BLT opcode should be 0x63");
+                    assert_eq!((instr >> 12) & 0x7, 0x4, "BLT funct3 should be 0x4");
+                }
+                _ => panic!("BLT should generate a Standard instruction"),
+            }
+            
+            // Test BGE instruction (funct3 = 0x5)
+            let mut builder4 = Riscv64InstructionBuilder::new();
+            builder4.bge(reg::X7, reg::X8, imm);
+            let instructions4 = builder4.instructions();
+            match instructions4[0] {
+                super::instruction::Instruction::Standard(instr) => {
+                    assert_eq!(instr & 0x7f, 0x63, "BGE opcode should be 0x63");
+                    assert_eq!((instr >> 12) & 0x7, 0x5, "BGE funct3 should be 0x5");
+                }
+                _ => panic!("BGE should generate a Standard instruction"),
+            }
+            
+            // Test BLTU instruction (funct3 = 0x6)
+            let mut builder5 = Riscv64InstructionBuilder::new();
+            builder5.bltu(reg::X9, reg::X10, imm);
+            let instructions5 = builder5.instructions();
+            match instructions5[0] {
+                super::instruction::Instruction::Standard(instr) => {
+                    assert_eq!(instr & 0x7f, 0x63, "BLTU opcode should be 0x63");
+                    assert_eq!((instr >> 12) & 0x7, 0x6, "BLTU funct3 should be 0x6");
+                }
+                _ => panic!("BLTU should generate a Standard instruction"),
+            }
+            
+            // Test BGEU instruction (funct3 = 0x7)
+            let mut builder6 = Riscv64InstructionBuilder::new();
+            builder6.bgeu(reg::X11, reg::X12, imm);
+            let instructions6 = builder6.instructions();
+            match instructions6[0] {
+                super::instruction::Instruction::Standard(instr) => {
+                    assert_eq!(instr & 0x7f, 0x63, "BGEU opcode should be 0x63");
+                    assert_eq!((instr >> 12) & 0x7, 0x7, "BGEU funct3 should be 0x7");
+                }
+                _ => panic!("BGEU should generate a Standard instruction"),
+            }
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 #[test]
 fn test_binary_correctness_jumps() {
