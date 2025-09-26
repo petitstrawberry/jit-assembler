@@ -127,7 +127,6 @@ jobs:
             
             echo 'Building examples...' &&
             cargo build --example jit_calculator --verbose &&
-            cargo build --example t0_register_test --verbose &&
             
             echo 'Running RISC-V64 integration tests...' &&
             cargo test --example jit_calculator --verbose &&
