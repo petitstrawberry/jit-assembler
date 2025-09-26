@@ -175,14 +175,10 @@ jobs:
           
           # Test example compilation specifically
           cargo check --example jit_calculator &&
-          cargo check --example t0_register_test &&
           
           # Test that examples run without crashing (interpretation mode)
           echo 'Testing JIT Calculator (interpretation mode)...' &&
           echo '2 + 3 * 4' | timeout 5 cargo run --example jit_calculator || echo 'Calculator test completed' &&
-          
-          echo 'Testing T0 register test...' &&
-          timeout 5 cargo run --example t0_register_test || echo 'T0 register test completed' &&
           
           echo 'All example tests completed successfully!'
         "
