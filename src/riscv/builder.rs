@@ -15,13 +15,53 @@ use alloc::collections::BTreeSet as HashSet;
 /// Instruction builder for generating RISC-V instructions
 pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,
+    #[cfg(feature = "register-tracking")]
+    register_usage: crate::common::register_usage::RegisterUsageInfo<Register>,
 }
 
 impl Riscv64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            #[cfg(feature = "register-tracking")]
+            register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
+    }
+    
+    /// Track a written register (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_written_register(&mut self, reg: Register) {
+        self.register_usage.add_written_register(reg);
+    }
+    
+    /// Track a read register (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_read_register(&mut self, reg: Register) {
+        self.register_usage.add_read_register(reg);
+    }
+    
+    /// Track multiple read registers at once (register-tracking feature only)
+    #[cfg(feature = "register-tracking")]
+    fn track_read_registers(&mut self, regs: &[Register]) {
+        for &reg in regs {
+            self.register_usage.add_read_register(reg);
+        }
+    }
+    
+    /// No-op versions for when register-tracking is disabled
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_written_register(&mut self, _reg: Register) {
+        // No-op
+    }
+    
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_read_register(&mut self, _reg: Register) {
+        // No-op
+    }
+    
+    #[cfg(not(feature = "register-tracking"))]
+    fn track_read_registers(&mut self, _regs: &[Register]) {
+        // No-op
     }
 
     /// Returns a slice of the raw instructions.
@@ -42,14 +82,20 @@ impl Riscv64InstructionBuilder {
 
     pub fn clear(&mut self) -> &mut Self {
         self.instructions.clear();
+        #[cfg(feature = "register-tracking")]
+        self.register_usage.clear();
         self
     }
 }
 
 impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
+    type Register = Register;
+    
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            #[cfg(feature = "register-tracking")]
+            register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
 
@@ -63,6 +109,18 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
 
     fn clear(&mut self) {
         self.instructions.clear();
+        #[cfg(feature = "register-tracking")]
+        self.register_usage.clear();
+    }
+    
+    #[cfg(feature = "register-tracking")]
+    fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+        &self.register_usage
+    }
+    
+    #[cfg(feature = "register-tracking")]
+    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+        &mut self.register_usage
     }
     
     /// Create a JIT-compiled function from the assembled instructions (std-only)

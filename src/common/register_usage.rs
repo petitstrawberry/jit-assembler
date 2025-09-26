@@ -30,59 +30,124 @@ use alloc::vec::Vec;
 /// 
 /// ```rust,ignore
 /// let mut usage_info = RegisterUsageInfo::new();
-/// usage_info.add_register(Register::T0);
-/// usage_info.add_register(Register::S1);
+/// usage_info.add_written_register(Register::T0);
+/// usage_info.add_read_register(Register::T1);
 /// 
-/// println!("Used caller-saved: {:?}", usage_info.caller_saved_registers());
-/// println!("Used callee-saved: {:?}", usage_info.callee_saved_registers());
+/// println!("Written (def): {:?}", usage_info.written_registers());
+/// println!("Read (use): {:?}", usage_info.read_registers());
 /// println!("Needs stack frame: {}", usage_info.needs_stack_frame());
 /// ```
 #[derive(Debug, Clone)]
 pub struct RegisterUsageInfo<R: Register> {
-    /// Set of all registers used by the instructions
-    used_registers: HashSet<R>,
+    /// Set of registers that are written to (def)
+    written_registers: HashSet<R>,
+    /// Set of registers that are read from (use)
+    read_registers: HashSet<R>,
 }
 
 impl<R: Register> RegisterUsageInfo<R> {
     /// Create a new empty register usage tracker.
     pub fn new() -> Self {
         Self {
-            used_registers: HashSet::new(),
+            written_registers: HashSet::new(),
+            read_registers: HashSet::new(),
         }
     }
     
-    /// Add a register to the usage tracking.
+    /// Add a register that is written to (destination register).
     /// 
-    /// This method should be called for each register that appears in
-    /// an instruction (as source or destination operand).
-    pub fn add_register(&mut self, register: R) {
-        self.used_registers.insert(register);
+    /// This should be called for rd registers that receive new values.
+    pub fn add_written_register(&mut self, register: R) {
+        self.written_registers.insert(register);
     }
     
-    /// Get all used registers as a slice.
+    /// Add a register that is read from (source register).
     /// 
+    /// This should be called for rs1, rs2 registers that provide input values.
+    pub fn add_read_register(&mut self, register: R) {
+        self.read_registers.insert(register);
+    }
+    
+    /// Add a register to the usage tracking (legacy method).
+    /// 
+    /// This method adds the register to both written and read sets for
+    /// backward compatibility. Prefer using add_written_register or
+    /// add_read_register for more precise tracking.
+    pub fn add_register(&mut self, register: R) {
+        self.written_registers.insert(register);
+        self.read_registers.insert(register);
+    }
+    
+    /// Get all written registers (def).
+    /// 
+    /// These are registers that receive new values and may need to be
+    /// preserved if they are callee-saved.
+    pub fn written_registers(&self) -> Vec<R> {
+        self.written_registers.iter().copied().collect()
+    }
+    
+    /// Get all read registers (use).
+    /// 
+    /// These are registers that provide input values.
+    pub fn read_registers(&self) -> Vec<R> {
+        self.read_registers.iter().copied().collect()
+    }
+    
+    /// Get all used registers (def ∪ use).
+    /// 
+    /// This returns the union of written and read registers.
     /// The order of registers in the returned vector is not guaranteed.
     pub fn used_registers(&self) -> Vec<R> {
-        self.used_registers.iter().copied().collect()
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        all_registers.iter().copied().collect()
     }
     
-    /// Get all caller-saved registers that are used.
+    /// Get all caller-saved registers that are written to.
     /// 
     /// These registers don't need special preservation handling in JIT code.
-    pub fn caller_saved_registers(&self) -> Vec<R> {
-        self.used_registers
+    pub fn caller_saved_written(&self) -> Vec<R> {
+        self.written_registers
             .iter()
             .filter(|&reg| reg.is_caller_saved())
             .copied()
             .collect()
     }
     
-    /// Get all callee-saved registers that are used.
+    /// Get all caller-saved registers that are used (written or read).
+    /// 
+    /// These registers don't need special preservation handling in JIT code.
+    pub fn caller_saved_registers(&self) -> Vec<R> {
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        all_registers
+            .iter()
+            .filter(|&reg| reg.is_caller_saved())
+            .copied()
+            .collect()
+    }
+    
+    /// Get all callee-saved registers that are written to.
     /// 
     /// These registers must be saved on function entry and restored on exit
-    /// if used by JIT-compiled code.
+    /// if used by JIT-compiled code. This is the primary list for determining
+    /// which registers need preservation.
+    pub fn callee_saved_written(&self) -> Vec<R> {
+        self.written_registers
+            .iter()
+            .filter(|&reg| reg.is_callee_saved())
+            .copied()
+            .collect()
+    }
+    
+    /// Get all callee-saved registers that are used (written or read).
+    /// 
+    /// For register preservation, prefer callee_saved_written() which only
+    /// includes registers that actually need to be saved.
     pub fn callee_saved_registers(&self) -> Vec<R> {
-        self.used_registers
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        all_registers
             .iter()
             .filter(|&reg| reg.is_callee_saved())
             .copied()
@@ -94,7 +159,9 @@ impl<R: Register> RegisterUsageInfo<R> {
     /// These registers require careful handling and may indicate
     /// advanced usage patterns.
     pub fn special_registers(&self) -> Vec<R> {
-        self.used_registers
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        all_registers
             .iter()
             .filter(|&reg| reg.is_special())
             .copied()
@@ -103,20 +170,23 @@ impl<R: Register> RegisterUsageInfo<R> {
     
     /// Get the total number of unique registers used.
     pub fn register_count(&self) -> usize {
-        self.used_registers.len()
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        all_registers.len()
     }
     
     /// Check if any registers are used.
     pub fn has_used_registers(&self) -> bool {
-        !self.used_registers.is_empty()
+        !self.written_registers.is_empty() || !self.read_registers.is_empty()
     }
     
-    /// Check if any callee-saved registers are used.
+    /// Check if any callee-saved registers are written to.
     /// 
     /// If this returns `true`, the JIT-compiled function needs to implement
     /// a proper function prologue/epilogue to save and restore these registers.
+    /// Only written registers need to be preserved, not read-only ones.
     pub fn needs_stack_frame(&self) -> bool {
-        self.used_registers.iter().any(|reg| reg.is_callee_saved())
+        self.written_registers.iter().any(|reg| reg.is_callee_saved())
     }
     
     /// Get a count of registers by ABI class.
@@ -127,7 +197,10 @@ impl<R: Register> RegisterUsageInfo<R> {
         let mut callee_saved = 0;
         let mut special = 0;
         
-        for register in &self.used_registers {
+        let mut all_registers: HashSet<R> = self.written_registers.clone();
+        all_registers.extend(&self.read_registers);
+        
+        for register in &all_registers {
             match register.abi_class() {
                 AbiClass::CallerSaved => caller_saved += 1,
                 AbiClass::CalleeSaved => callee_saved += 1,
@@ -140,12 +213,23 @@ impl<R: Register> RegisterUsageInfo<R> {
     
     /// Clear all register usage information.
     pub fn clear(&mut self) {
-        self.used_registers.clear();
+        self.written_registers.clear();
+        self.read_registers.clear();
     }
     
-    /// Check if a specific register is used.
+    /// Check if a specific register is used (written or read).
     pub fn contains_register(&self, register: &R) -> bool {
-        self.used_registers.contains(register)
+        self.written_registers.contains(register) || self.read_registers.contains(register)
+    }
+    
+    /// Check if a specific register is written to.
+    pub fn contains_written_register(&self, register: &R) -> bool {
+        self.written_registers.contains(register)
+    }
+    
+    /// Check if a specific register is read from.
+    pub fn contains_read_register(&self, register: &R) -> bool {
+        self.read_registers.contains(register)
     }
     
     /// Merge another register usage info into this one.
@@ -153,8 +237,11 @@ impl<R: Register> RegisterUsageInfo<R> {
     /// This is useful for combining usage information from multiple
     /// instruction sequences.
     pub fn merge(&mut self, other: &RegisterUsageInfo<R>) {
-        for register in &other.used_registers {
-            self.used_registers.insert(*register);
+        for register in &other.written_registers {
+            self.written_registers.insert(*register);
+        }
+        for register in &other.read_registers {
+            self.read_registers.insert(*register);
         }
     }
     

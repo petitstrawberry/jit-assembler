@@ -107,6 +107,9 @@ pub trait Register: Copy + Clone + fmt::Debug + core::hash::Hash + Eq {
 
 /// An instruction builder for a specific architecture
 pub trait InstructionBuilder<I: Instruction> {
+    /// The register type used by this architecture
+    type Register: Register;
+    
     /// Create a new instruction builder
     fn new() -> Self;
     
@@ -118,6 +121,30 @@ pub trait InstructionBuilder<I: Instruction> {
     
     /// Clear all instructions
     fn clear(&mut self);
+    
+    /// Get register usage information (register-tracking feature only)
+    /// 
+    /// This method returns information about which registers have been used
+    /// by the instructions in this builder, enabling register allocation
+    /// analysis and ABI compliance checking.
+    #[cfg(feature = "register-tracking")]
+    fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register>;
+    
+    /// Get mutable register usage information (register-tracking feature only)
+    /// 
+    /// This allows direct manipulation of the usage tracking, which can be
+    /// useful for advanced use cases or manual register tracking.
+    #[cfg(feature = "register-tracking")]
+    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register>;
+    
+    /// Clear register usage information (register-tracking feature only)
+    /// 
+    /// This resets the usage tracking to an empty state, which can be
+    /// useful when reusing a builder for multiple functions.
+    #[cfg(feature = "register-tracking")]
+    fn clear_register_usage(&mut self) {
+        self.register_usage_mut().clear();
+    }
     
     /// Create a JIT-compiled function from the assembled instructions (std-only)
     /// 
