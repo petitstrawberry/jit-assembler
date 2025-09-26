@@ -7,6 +7,11 @@ use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+#[cfg(feature = "std")]
+use std::collections::HashSet;
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeSet as HashSet;
+
 /// Instruction builder for generating RISC-V instructions
 pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,

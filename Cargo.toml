@@ -14,6 +14,7 @@ readme = "README.md"
 
 [dependencies]
 jit-allocator2 = { version = "0.2", optional = true }
+hashbrown = { version = "0.14", default-features = false, optional = true }
 
 [features]
 default = ["std", "riscv"]
@@ -21,6 +22,7 @@ std = ["jit-allocator2"]
 riscv = []
 x86_64 = []
 arm64 = []
+register-tracking = ["hashbrown"]
 
 [dev-dependencies]
 # For tests that might need std features

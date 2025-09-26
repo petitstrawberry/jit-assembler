@@ -11,7 +11,7 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 /// RISC-V register representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Register(pub u8);
 
 impl Register {
@@ -27,6 +27,29 @@ impl Register {
 impl RegisterTrait for Register {
     fn id(&self) -> u32 {
         self.0 as u32
+    }
+    
+    fn abi_class(&self) -> crate::common::AbiClass {
+        use crate::common::AbiClass;
+        
+        match self.0 {
+            // Caller-saved registers (do not need to be preserved across calls)
+            1 => AbiClass::CallerSaved,         // RA (return address) - caller-saved
+            5..=7 | 28..=31 => AbiClass::CallerSaved,  // T0-T2, T3-T6 (temporaries)
+            10..=17 => AbiClass::CallerSaved,   // A0-A7 (arguments/return values)
+            
+            // Callee-saved registers (must be preserved across calls)
+            2 => AbiClass::CalleeSaved,         // SP (stack pointer) - callee-saved
+            8..=9 | 18..=27 => AbiClass::CalleeSaved,  // S0-S1, S2-S11 (saved registers)
+            
+            // Special-purpose registers
+            0 => AbiClass::Special,  // X0 (zero register) - hardwired to zero
+            3 => AbiClass::Special,  // GP (global pointer) - special purpose
+            4 => AbiClass::Special,  // TP (thread pointer) - special purpose
+
+            // Default to Special for any unhandled registers
+            _ => AbiClass::Special,
+        }
     }
 }
 

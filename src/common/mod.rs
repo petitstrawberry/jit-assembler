@@ -2,6 +2,10 @@
 
 use core::fmt;
 
+/// Register usage tracking functionality
+#[cfg(feature = "register-tracking")]
+pub mod register_usage;
+
 #[cfg(feature = "std")]
 use std::vec::Vec;
 #[cfg(not(feature = "std"))]
@@ -19,10 +23,86 @@ pub trait Instruction: Copy + Clone + fmt::Debug + fmt::Display {
     fn size(&self) -> usize;
 }
     
+/// ABI classification for registers based on preservation requirements.
+/// 
+/// This simplified classification focuses on whether registers need to be
+/// preserved across function calls, which is the most critical information
+/// for JIT compilation and register allocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AbiClass {
+    /// Caller-saved registers that don't need to be preserved across calls.
+    /// 
+    /// These registers can be freely used by JIT-compiled functions without
+    /// saving/restoring their values. Examples: argument registers, temp registers.
+    CallerSaved,
+    
+    /// Callee-saved registers that must be preserved across calls.
+    /// 
+    /// If a JIT-compiled function uses these registers, it must save their
+    /// values on entry and restore them before returning. Examples: saved registers.
+    CalleeSaved,
+    
+    /// Special-purpose registers with specific ABI requirements.
+    /// 
+    /// These registers have specific roles (stack pointer, frame pointer, zero register, etc.)
+    /// and require careful handling. Generally should be avoided in JIT code
+    /// unless specifically needed for their intended purpose.
+    Special,
+}
+
+impl fmt::Display for AbiClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AbiClass::CallerSaved => write!(f, "caller-saved"),
+            AbiClass::CalleeSaved => write!(f, "callee-saved"),
+            AbiClass::Special => write!(f, "special"),
+        }
+    }
+}
+
 /// A register identifier for a target architecture
-pub trait Register: Copy + Clone + fmt::Debug {
+pub trait Register: Copy + Clone + fmt::Debug + core::hash::Hash + Eq {
     /// Get the register number/identifier
     fn id(&self) -> u32;
+    
+    /// Get the ABI classification for this register.
+    /// 
+    /// This method should return the appropriate `AbiClass` based on the
+    /// target architecture's calling convention.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust,ignore
+    /// // For RISC-V
+    /// match self {
+    ///     Register::T0 | Register::T1 => AbiClass::CallerSaved,
+    ///     Register::S0 | Register::S1 => AbiClass::CalleeSaved,
+    ///     Register::SP | Register::FP => AbiClass::Other,
+    ///     // ...
+    /// }
+    /// ```
+    fn abi_class(&self) -> AbiClass;
+    
+    /// Check if this register is caller-saved.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::CallerSaved`.
+    fn is_caller_saved(&self) -> bool {
+        self.abi_class() == AbiClass::CallerSaved
+    }
+    
+    /// Check if this register is callee-saved.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::CalleeSaved`.
+    fn is_callee_saved(&self) -> bool {
+        self.abi_class() == AbiClass::CalleeSaved
+    }
+    
+    /// Check if this register is special-purpose.
+    /// 
+    /// Convenience method equivalent to `self.abi_class() == AbiClass::Special`.
+    fn is_special(&self) -> bool {
+        self.abi_class() == AbiClass::Special
+    }
 }
 
 /// An instruction builder for a specific architecture
