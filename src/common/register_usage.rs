@@ -302,8 +302,6 @@ mod tests {
         SP, FP,    // Special
     }
     
-
-    
     impl crate::common::Register for TestRegister {
         fn id(&self) -> u32 {
             match self {
