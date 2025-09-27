@@ -342,7 +342,7 @@ impl InstructionBuilder<Instruction> for Aarch64InstructionBuilder {
     /// }.expect("Failed to create JIT function");
     /// 
     /// // Call the JIT function directly (only works on AArch64 hosts)
-    /// // let result = add_func(10, 20); // Returns 30
+    /// // let result = add_func.call(10, 20); // Returns 30
     /// ```
     #[cfg(feature = "std")]
     unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {

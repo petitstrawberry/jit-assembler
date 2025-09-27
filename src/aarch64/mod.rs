@@ -36,7 +36,7 @@
 //!
 //! // On AArch64 hosts, you can JIT compile and execute:
 //! // let func = unsafe { builder.function::<fn(u64, u64) -> u64>() }?;
-//! // let result = func(10, 20); // Returns 30
+//! // let result = func.call(10, 20); // Returns 30
 //! ```
 
 pub mod instruction;
