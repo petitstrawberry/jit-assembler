@@ -15,7 +15,7 @@
 //! ## Supported Architectures
 //!
 //! - **RISC-V 64-bit** (`riscv` feature, enabled by default)
-//! - **AArch64** (`arm64` feature) - Basic arithmetic and logical operations
+//! - **AArch64** (`aarch64` feature) - Basic arithmetic and logical operations
 //! - **x86-64** (`x86_64` feature) - Coming soon
 //!
 //! ## Usage
@@ -88,7 +88,7 @@ pub mod riscv;
 #[cfg(feature = "x86_64")]
 pub mod x86_64;
 
-#[cfg(feature = "arm64")]
+#[cfg(feature = "aarch64")]
 pub mod aarch64;
 
 // Re-export for convenience (default to RISC-V if available)

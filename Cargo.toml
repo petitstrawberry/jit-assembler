@@ -21,8 +21,7 @@ default = ["std", "riscv"]
 std = ["jit-allocator2"]
 riscv = []
 x86_64 = []
-arm64 = []
-aarch64 = ["arm64"]  # Alias for arm64
+aarch64 = []
 register-tracking = ["hashbrown"]
 
 [dev-dependencies]

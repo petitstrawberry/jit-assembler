@@ -16,7 +16,7 @@ A multi-architecture JIT assembler library for runtime code generation that work
 ## Supported Architectures
 
 - **RISC-V 64-bit** (`riscv` feature, enabled by default)
-- **AArch64** (`arm64` feature) - Basic arithmetic and logical operations
+- **AArch64** (`aarch64` feature) - Basic arithmetic and logical operations
 - **x86-64** (`x86_64` feature) - Coming soon
 
 ## Usage
