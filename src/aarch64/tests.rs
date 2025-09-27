@@ -258,6 +258,99 @@ fn test_jit_add_function() {
     assert!(jit_func.is_ok(), "JIT add function creation should succeed");
 }
 
+/// AArch64-specific JIT execution tests (only run on AArch64 architecture)
+#[cfg(feature = "std")]
+#[test]
+#[cfg(target_arch = "aarch64")]
+fn test_aarch64_jit_execution() {
+    // Test basic addition function
+    let add_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .add(reg::X0, reg::X0, reg::X1)  // Add X0 + X1 -> X0
+            .ret()                           // Return
+            .function::<fn(u64, u64) -> u64>()
+    }.expect("Failed to create add function");
+    
+    let result = add_func.call(10, 20);
+    assert_eq!(result, 30, "10 + 20 should equal 30");
+    
+    // Test subtraction function
+    let sub_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .sub(reg::X0, reg::X0, reg::X1)  // Sub X0 - X1 -> X0  
+            .ret()                           // Return
+            .function::<fn(u64, u64) -> u64>()
+    }.expect("Failed to create sub function");
+    
+    let result = sub_func.call(50, 30);
+    assert_eq!(result, 20, "50 - 30 should equal 20");
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[cfg(target_arch = "aarch64")]
+fn test_aarch64_jit_multiplication() {
+    // Test multiplication function
+    let mul_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .mul(reg::X0, reg::X0, reg::X1)  // Mul X0 * X1 -> X0
+            .ret()                           // Return
+            .function::<fn(u64, u64) -> u64>()
+    }.expect("Failed to create mul function");
+    
+    let result = mul_func.call(7, 6);
+    assert_eq!(result, 42, "7 * 6 should equal 42");
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[cfg(target_arch = "aarch64")]
+fn test_aarch64_jit_division() {
+    // Test unsigned division function
+    let div_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .udiv(reg::X0, reg::X0, reg::X1)  // UDiv X0 / X1 -> X0
+            .ret()                            // Return
+            .function::<fn(u64, u64) -> u64>()
+    }.expect("Failed to create div function");
+    
+    let result = div_func.call(84, 12);
+    assert_eq!(result, 7, "84 / 12 should equal 7");
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[cfg(target_arch = "aarch64")]
+fn test_aarch64_jit_complex_expression() {
+    // Test complex expression: (a + b) * c
+    let complex_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .add(reg::X0, reg::X0, reg::X1)  // X0 = X0 + X1 (a + b)
+            .mul(reg::X0, reg::X0, reg::X2)  // X0 = X0 * X2 ((a + b) * c)
+            .ret()                           // Return
+            .function::<fn(u64, u64, u64) -> u64>()
+    }.expect("Failed to create complex function");
+    
+    let result = complex_func.call(10, 5, 3);
+    assert_eq!(result, 45, "(10 + 5) * 3 should equal 45");
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[cfg(target_arch = "aarch64")]  
+fn test_aarch64_jit_remainder_operation() {
+    // Test remainder operation: a % b using the urem instruction
+    let rem_func = unsafe {
+        Aarch64InstructionBuilder::new()
+            .urem(reg::X0, reg::X0, reg::X1) // X0 = X0 % X1
+            .ret()                           // Return
+            .function::<fn(u64, u64) -> u64>()
+    }.expect("Failed to create remainder function");
+    
+    let result = rem_func.call(23, 7);
+    assert_eq!(result, 2, "23 % 7 should equal 2");
+}
+
 #[test]
 fn test_immediate_move_operations() {
     let mut builder = Aarch64InstructionBuilder::new();
