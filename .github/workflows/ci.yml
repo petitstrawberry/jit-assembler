@@ -143,85 +143,42 @@ jobs:
 
   # AArch64 tests
   test-aarch64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-arm
     name: Test on AArch64
 
     steps:
     - uses: actions/checkout@v4
-    
-    # Set up QEMU for AArch64 emulation
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: arm64
-        
-    # Set up Docker Buildx for multi-platform builds
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
 
-    # Generate Docker cache key for AArch64
-    - name: Generate AArch64 Docker cache key
-      id: docker-cache-key-aarch64
-      run: echo "key=docker-cache-aarch64-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
-
-    # Cache Docker image for AArch64
-    - name: Cache AArch64 Docker image
-      id: docker-cache-aarch64
-      uses: actions/cache@v3
-      with:
-        path: /tmp/docker-image-aarch64
-        key: ${{ steps.docker-cache-key-aarch64.outputs.key }}
-
-    # Build AArch64 Docker image (only if not cached)
-    - name: Build AArch64 Docker image
-      if: steps.docker-cache-aarch64.outputs.cache-hit != 'true'
+    - name: Build JIT Assembler on AArch64
       run: |
-        docker buildx build \
-          --platform linux/arm64 \
-          --file Dockerfile \
-          --tag jit-assembler-aarch64 \
-          --load \
-          .
-        docker save jit-assembler-aarch64 > /tmp/docker-image-aarch64
+        echo "Architecture: $(uname -m)"
+        cargo build --features aarch64 --verbose
+      timeout-minutes: 10
 
-    # Load cached AArch64 Docker image
-    - name: Load cached AArch64 Docker image
-      if: steps.docker-cache-aarch64.outputs.cache-hit == 'true'
-      run: docker load < /tmp/docker-image-aarch64
-
-    # Run tests on AArch64
     - name: Test JIT Assembler on AArch64
       run: |
-        docker run --rm \
-          --platform linux/arm64 \
-          -v $PWD:/workspaces/jit-assembler \
-          jit-assembler-aarch64 \
-          bash -c "echo 'Architecture: \$(uname -m)' && cargo build --features aarch64 --verbose && cargo test --features aarch64 --verbose"
-      timeout-minutes: 20
+        echo "Running AArch64 tests..."
+        echo "Architecture: $(uname -m)"
+        cargo test --features aarch64 --verbose
+      timeout-minutes: 15
 
     # Run example tests on AArch64 (this is where JIT actually executes!)
     - name: Test Examples on AArch64 (JIT execution)
       run: |
-        docker run --rm \
-          --platform linux/arm64 \
-          -v $PWD:/workspaces/jit-assembler \
-          jit-assembler-aarch64 \
-          bash -c "
-            echo 'Testing JIT Calculator examples on AArch64...' &&
-            echo 'Architecture: \$(uname -m)' &&
-            
-            echo 'Building examples...' &&
-            cargo build --example jit_calculator --features aarch64 --verbose &&
-            
-            echo 'Running AArch64 integration tests...' &&
-            cargo test --example jit_calculator --features aarch64 --verbose &&
-            
-            echo 'Testing JIT Calculator with sample expressions...' &&
-            echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64 &&
-            
-            echo 'Testing JIT Calculator with machine code display...' &&
-            echo '7 * 6' | timeout 10 cargo run --example jit_calculator --features aarch64 -- --show-machine-code &&
-            
-            echo 'All AArch64 example tests completed successfully!'
-          "
+        echo "Testing JIT Calculator examples on AArch64..."
+        echo "Architecture: $(uname -m)"
+        
+        echo "Building examples..."
+        cargo build --example jit_calculator --features aarch64 --verbose
+        
+        echo "Running AArch64 integration tests..."
+        cargo test --example jit_calculator --features aarch64 --verbose
+        
+        echo "Testing JIT Calculator with sample expressions..."
+        echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64
+        
+        echo "Testing JIT Calculator with machine code display..."
+        echo '7 * 6' | timeout 10 cargo run --example jit_calculator --features aarch64 -- --show-machine-code
+        
+        echo "All AArch64 example tests completed successfully!"
       timeout-minutes: 15
