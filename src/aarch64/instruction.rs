@@ -94,12 +94,25 @@ impl fmt::Display for Instruction {
     }
 }
 
-/// Data Processing - Register instruction encoding (3-operand)
+/// Data Processing - Register instruction encoding (3-operand)  
 pub fn encode_add_sub_reg(sf: u8, op: u8, s: u8, rm: Register, imm6: u8, rn: Register, rd: Register) -> Instruction {
+    // ADD/SUB (shifted register) encoding according to AArch64 ISA
+    // 31: sf (0=32-bit, 1=64-bit)
+    // 30: op (0=ADD, 1=SUB) 
+    // 29: s (0=don't set flags, 1=set flags)
+    // 28-24: 01011 (fixed for shifted register)
+    // 23-22: shift (00=LSL, 01=LSR, 10=ASR, 11=reserved)
+    // 21: 0 (fixed)
+    // 20-16: Rm 
+    // 15-10: imm6 (shift amount)
+    // 9-5: Rn
+    // 4-0: Rd
     let instr = ((sf as u32) << 31) |
                 ((op as u32) << 30) |
                 ((s as u32) << 29) |
-                (0b01011 << 24) |  // Fixed bits for data processing register
+                (0b01011 << 24) |     // Fixed bits for shifted register format
+                (0b00 << 22) |        // shift = 00 (LSL)
+                (0 << 21) |           // Fixed bit
                 ((rm.value() as u32) << 16) |
                 ((imm6 as u32) << 10) |
                 ((rn.value() as u32) << 5) |
@@ -161,10 +174,19 @@ pub fn encode_move_reg(sf: u8, rm: Register, rd: Register) -> Instruction {
 
 /// Return instruction encoding (RET)
 pub fn encode_ret(rn: Register) -> Instruction {
-    // RET Xn -> BR Xn with specific encoding
-    let instr = (0b1101011000011111 << 16) |
-                ((rn.value() as u32) << 5) |
-                0b00000;
+    // RET Xn instruction encoding according to AArch64 ISA
+    // 31-25: 1101011 (fixed)
+    // 24-21: 0001 (opc for RET)
+    // 20-16: 11111 (op2)  
+    // 15-10: 000000 (op3)
+    // 9-5: Rn
+    // 4-0: 00000 (op4)
+    let instr = (0b1101011 << 25) |   // bits 31-25
+                (0b0001 << 21) |      // bits 24-21 (RET opc)
+                (0b11111 << 16) |     // bits 20-16 (op2)
+                (0b000000 << 10) |    // bits 15-10 (op3) 
+                ((rn.value() as u32) << 5) |  // bits 9-5 (Rn)
+                0b00000;              // bits 4-0 (op4)
     Instruction::new(instr)
 }
 
