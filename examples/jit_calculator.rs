@@ -2,18 +2,18 @@
 //! 
 //! This example demonstrates a sophisticated JIT-compiled calculator that uses
 //! an Abstract Syntax Tree (AST) to represent mathematical expressions.
-//! The calculator compiles expressions to native RISC-V machine code using
-//! the M extension for arithmetic operations.
+//! The calculator compiles expressions to native machine code using
+//! either RISC-V or AArch64 depending on the target architecture.
 //! 
 //! Features:
 //! - AST-based expression parsing and evaluation
 //! - Support for parentheses and operator precedence
-//! - JIT compilation to RISC-V machine code
+//! - JIT compilation to RISC-V or AArch64 machine code
 //! - Optimized code generation for complex expressions
 //! 
 //! Supported operations: +, -, *, /, % (remainder), and parentheses
 //! 
-//! Note: This example works on RISC-V hosts or in emulation.
+//! Note: This example works on RISC-V or AArch64 hosts or in emulation.
 //! On other architectures, the functions will be created successfully
 //! but calling them will likely crash.
 
@@ -421,18 +421,18 @@ impl JitCalculator {
         println!("🌳 Generated AST: {}", ast);
         
         // Compile AST to JIT function
-        println!("🔧 Compiling to RISC-V machine code...");
+        println!("🔧 Compiling to native machine code...");
         let mut compiler = JitCompiler::new();
         let jit_function = compiler.compile_expression(&ast, config)?;
         
         // Execute JIT function
-        if cfg!(target_arch = "riscv64") {
+        if cfg!(target_arch = "riscv64") || cfg!(target_arch = "aarch64") {
             let result = jit_function();
             println!("✅ JIT execution result: {}", result);
             Ok(result)
         } else {
-            // On non-RISC-V platforms, fall back to AST interpretation
-            println!("⚠️  Not on RISC-V platform, using AST interpreter");
+            // On non-RISC-V/AArch64 platforms, fall back to AST interpretation
+            println!("⚠️  Not on RISC-V or AArch64 platform, using AST interpreter");
             let result = Self::interpret_ast(&ast)?;
             println!("✅ Interpreted result: {}", result);
             Ok(result)
@@ -629,18 +629,18 @@ fn print_help() {
     println!("    cargo run --example jit_calculator -m");
 }
 
-/// RISC-V64 Integration Tests for JIT Calculator
+/// RISC-V64 and AArch64 Integration Tests for JIT Calculator
 /// 
-/// This module contains tests that only run on RISC-V64 platforms
+/// This module contains tests that only run on RISC-V64 or AArch64 platforms
 /// to verify that the JIT calculator works correctly with actual execution.
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Test basic arithmetic operations on RISC-V64
+    /// Test basic arithmetic operations on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_basic_arithmetic() {
         let config = CalculatorConfig::default();
         
@@ -665,9 +665,9 @@ mod tests {
         assert_eq!(result, 2);
     }
 
-    /// Test complex expressions with operator precedence on RISC-V64
+    /// Test complex expressions with operator precedence on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_complex_expressions() {
         let config = CalculatorConfig::default();
         
@@ -692,9 +692,9 @@ mod tests {
         assert_eq!(result, 26);
     }
 
-    /// Test edge cases on RISC-V64
+    /// Test edge cases on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_edge_cases() {
         let config = CalculatorConfig::default();
         
@@ -715,9 +715,9 @@ mod tests {
         assert_eq!(result, 25); // (5 * 4) + 5 = 20 + 5 = 25
     }
 
-    /// Test register allocation with complex expressions on RISC-V64
+    /// Test register allocation with complex expressions on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_register_allocation() {
         let config = CalculatorConfig::default();
         
@@ -736,9 +736,9 @@ mod tests {
         }
     }
 
-    /// Test M extension instructions specifically on RISC-V64
+    /// Test M extension instructions specifically on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_m_extension() {
         let config = CalculatorConfig::default();
         
@@ -782,9 +782,9 @@ mod tests {
         }
     }
 
-    /// Benchmark-style test to ensure JIT compilation is working on RISC-V64
+    /// Benchmark-style test to ensure JIT compilation is working on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_jit_compilation_performance() {
         let config = CalculatorConfig::default();
         
@@ -800,9 +800,9 @@ mod tests {
         }
     }
 
-    /// Test machine code generation output on RISC-V64
+    /// Test machine code generation output on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
     fn test_riscv64_machine_code_generation() {
         let mut config = CalculatorConfig::default();
         config.show_machine_code = true;
