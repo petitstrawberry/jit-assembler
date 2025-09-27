@@ -258,6 +258,34 @@ fn test_jit_add_function() {
     assert!(jit_func.is_ok(), "JIT add function creation should succeed");
 }
 
+#[test]
+fn test_immediate_move_operations() {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    // Test small immediate
+    builder.mov_imm(reg::X0, 42);
+    
+    // Test larger immediate that requires multiple instructions
+    builder.mov_imm(reg::X1, 0x1234);
+    
+    let instructions = builder.instructions();
+    assert!(instructions.len() >= 2);
+}
+
+#[test]
+fn test_shift_operations() {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    // Test left shift by 1 (multiply by 2)
+    builder.shl(reg::X0, reg::X1, 1);
+    
+    // Test left shift by 3 (multiply by 8)  
+    builder.shl(reg::X2, reg::X3, 3);
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 4); // Each shl generates 2 instructions
+}
+
 #[cfg(feature = "register-tracking")]
 mod register_tracking_tests {
     use super::*;

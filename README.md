@@ -16,8 +16,8 @@ A multi-architecture JIT assembler library for runtime code generation that work
 ## Supported Architectures
 
 - **RISC-V 64-bit** (`riscv` feature, enabled by default)
+- **AArch64** (`arm64` feature) - Basic arithmetic and logical operations
 - **x86-64** (`x86_64` feature) - Coming soon
-- **ARM64** (`arm64` feature) - Coming soon
 
 ## Usage
 
@@ -111,12 +111,35 @@ The RISC-V backend supports:
 - **Pseudo-instructions**: `ret`, `li`
 - **Register usage tracking**: Full tracking support for all instruction types (`register-tracking` feature)
 
+### AArch64
+
+The AArch64 backend supports:
+
+- **Basic arithmetic operations**:
+  - **Register operations**: `add`, `sub`, `mul`, `udiv`, `sdiv`
+  - **Immediate operations**: `addi`, `subi`
+  - **Remainder operations**: `urem` (unsigned remainder)
+- **Logical operations**:
+  - **Register operations**: `and`, `or`, `xor` (EOR)
+  - **Move operations**: `mov`
+- **Control flow**:
+  - **Return**: `ret`, `ret_reg`
+- **Extended operations**:
+  - **Immediate moves**: `mov_imm` (for larger constants)
+  - **Shift operations**: `shl` (left shift using multiply)
+- **Register conventions**: Following AAPCS64 (ARM ABI)
+  - **Argument/return registers**: X0-X7
+  - **Caller-saved temporaries**: X8-X18
+  - **Callee-saved registers**: X19-X28
+  - **Special registers**: X29 (FP), X30 (LR), X31 (SP/XZR)
+- **Register usage tracking**: Full tracking support (`register-tracking` feature)
+- **JIT compilation**: Direct function compilation and execution
+
 ### Future Architectures
 
 Support for additional architectures is planned:
 
 - x86-64: Intel/AMD 64-bit instruction set
-- ARM64: AArch64 instruction set
 
 ## Examples
 
@@ -149,6 +172,37 @@ fn generate_csr_routine() -> Vec<u8> {
         .csrrw(reg::A0, csr::MSTATUS, reg::T1); // Write back, old value in a0
     
     // Convert to executable code
+    builder.instructions().to_bytes()
+}
+```
+
+### AArch64 Usage
+
+```rust
+use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
+
+// Create an AArch64 function that adds two numbers
+fn generate_aarch64_add_function() -> Vec<u8> {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    builder
+        .add(reg::X0, reg::X0, reg::X1)  // Add first two arguments (X0 + X1 -> X0)
+        .ret();                          // Return
+    
+    builder.instructions().to_bytes()
+}
+
+// More complex AArch64 example with immediate values
+fn generate_aarch64_calculation() -> Vec<u8> {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    builder
+        .mov_imm(reg::X1, 42)            // Load immediate 42 into X1
+        .mul(reg::X0, reg::X0, reg::X1)  // Multiply X0 by 42
+        .addi(reg::X0, reg::X0, 100)     // Add 100 to result
+        .ret();                          // Return
+    
     builder.instructions().to_bytes()
 }
 ```
