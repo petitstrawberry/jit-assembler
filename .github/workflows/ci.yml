@@ -149,36 +149,46 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Build JIT Assembler on AArch64
+    # Dockerfile と関連ファイルのハッシュを計算
+    - name: Generate Docker cache key
+      id: docker-cache-key
+      run: echo "key=docker-cache-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Docker キャッシュを復元
+    - name: Cache Docker image
+      id: docker-cache
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image
+        key: ${{ steps.docker-cache-key.outputs.key }}
+
+    # キャッシュがない場合のみビルド
+    - name: Build the Docker image
+      if: steps.docker-cache.outputs.cache-hit != 'true'
       run: |
-        echo "Architecture: $(uname -m)"
-        cargo build --features aarch64 --verbose
+        docker build . --file Dockerfile --tag jit-assembler-dev
+        docker save jit-assembler-dev > /tmp/docker-image
+
+    # キャッシュがある場合はロード
+    - name: Load cached Docker image
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image
+
+    - name: Build JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo build --features aarch64
+
+    - name: Test JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test --features aarch64
+      timeout-minutes: 5
+
+    - name: Test Examples (JIT execution on AArch64)
+      run: |
+        docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev bash -c "
+          echo 'Testing JIT Calculator example compilation and execution on AArch64...' &&
+          echo 'Architecture: \$(uname -m)' &&
+          cargo build --example jit_calculator --features aarch64 &&
+          cargo test --example jit_calculator --features aarch64 &&
+          echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64 &&
+          echo 'AArch64 example tests completed successfully!'
+        "
       timeout-minutes: 10
-
-    - name: Test JIT Assembler on AArch64
-      run: |
-        echo "Running AArch64 tests..."
-        echo "Architecture: $(uname -m)"
-        cargo test --features aarch64 --verbose
-      timeout-minutes: 15
-
-    # Run example tests on AArch64 (this is where JIT actually executes!)
-    - name: Test Examples on AArch64 (JIT execution)
-      run: |
-        echo "Testing JIT Calculator examples on AArch64..."
-        echo "Architecture: $(uname -m)"
-        
-        echo "Building examples..."
-        cargo build --example jit_calculator --features aarch64 --verbose
-        
-        echo "Running AArch64 integration tests..."
-        cargo test --example jit_calculator --features aarch64 --verbose
-        
-        echo "Testing JIT Calculator with sample expressions..."
-        echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64
-        
-        echo "Testing JIT Calculator with machine code display..."
-        echo '7 * 6' | timeout 10 cargo run --example jit_calculator --features aarch64 -- --show-machine-code
-        
-        echo "All AArch64 example tests completed successfully!"
-      timeout-minutes: 15
