@@ -1128,6 +1128,179 @@ fn test_binary_correctness_branches() {
 
 #[cfg(feature = "std")]
 #[test]
+fn test_jump_instructions_comprehensive() {
+    // Test JAL instruction with various immediate values
+    let test_cases = vec![
+        (0, "jal x1, ."),                  // Zero offset (branch to self)
+        (4, "jal x1, .+4"),                // Small positive offset
+        (100, "jal x1, .+100"),            // Medium positive offset
+        (1000, "jal x1, .+1000"),          // Larger positive offset
+        (-4, "jal x1, .-4"),               // Small negative offset
+        (-100, "jal x1, .-100"),           // Medium negative offset
+        (-1000, "jal x1, .-1000"),         // Larger negative offset
+    ];
+    
+    for (imm, assembly) in test_cases {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.jal(reg::X1, imm);
+        let instructions = builder.instructions();
+        compare_instruction(instructions[0], &format!("{}\n", assembly));
+    }
+    
+    // Test JALR instruction with various immediate values
+    let jalr_test_cases = vec![
+        (0, "jalr x0, x1, 0"),             // Zero offset
+        (4, "jalr x0, x1, 4"),             // Small positive offset
+        (100, "jalr x0, x1, 100"),         // Medium positive offset
+        (1000, "jalr x0, x1, 1000"),       // Large positive offset
+        (-4, "jalr x0, x1, -4"),           // Small negative offset
+        (-100, "jalr x0, x1, -100"),       // Medium negative offset
+        (-1000, "jalr x0, x1, -1000"),     // Large negative offset
+    ];
+    
+    for (imm, assembly) in jalr_test_cases {
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.jalr(reg::X0, reg::X1, imm);
+        let instructions = builder.instructions();
+        compare_instruction(instructions[0], &format!("{}\n", assembly));
+    }
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_jump_instruction_encoding_correctness() {
+    // Test specific known encodings to verify correctness using GNU assembler comparison
+    
+    // JAL x1, 0 - compare with GNU assembler
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.jal(reg::X1, 0);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "jal x1, .\n");
+    
+    // JALR x0, x1, 0 - compare with GNU assembler
+    let mut builder2 = Riscv64InstructionBuilder::new();
+    builder2.jalr(reg::X0, reg::X1, 0);
+    let instructions2 = builder2.instructions();
+    compare_instruction(instructions2[0], "jalr x0, x1, 0\n");
+    
+    // Test JAL with small positive offset
+    let mut builder3 = Riscv64InstructionBuilder::new();
+    builder3.jal(reg::X1, 4);
+    let instructions3 = builder3.instructions();
+    compare_instruction(instructions3[0], "jal x1, .+4\n");
+    
+    // Test JALR with positive offset
+    let mut builder4 = Riscv64InstructionBuilder::new();
+    builder4.jalr(reg::X2, reg::X3, 8);
+    let instructions4 = builder4.instructions();
+    compare_instruction(instructions4[0], "jalr x2, x3, 8\n");
+    
+    // Test negative offset encoding
+    let mut builder5 = Riscv64InstructionBuilder::new();
+    builder5.jal(reg::X1, -4);
+    let instructions5 = builder5.instructions();
+    compare_instruction(instructions5[0], "jal x1, .-4\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_jump_branch_edge_cases() {
+    // Test edge cases near the limits of immediate ranges
+    
+    // JAL large positive offset (21-bit signed max: +1,048,575)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.jal(reg::X1, 1048575); // Max positive J-type immediate (2^20 - 1)
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "jal x1, .+1048575\n");
+    
+    // JAL large negative offset (21-bit signed min: -1,048,576)
+    let mut builder2 = Riscv64InstructionBuilder::new();
+    builder2.jal(reg::X1, -1048576); // Min negative J-type immediate (-2^20)
+    let instructions2 = builder2.instructions();
+    compare_instruction(instructions2[0], "jal x1, .-1048576\n");
+    
+    // JALR maximum positive immediate (12-bit signed max: +2,047)
+    let mut builder3 = Riscv64InstructionBuilder::new();
+    builder3.jalr(reg::X0, reg::X1, 2047); // Max positive JALR immediate
+    let instructions3 = builder3.instructions();
+    compare_instruction(instructions3[0], "jalr x0, x1, 2047\n");
+    
+    // JALR maximum negative immediate (12-bit signed min: -2,048)
+    let mut builder4 = Riscv64InstructionBuilder::new();
+    builder4.jalr(reg::X0, reg::X1, -2048); // Min negative JALR immediate
+    let instructions4 = builder4.instructions();
+    compare_instruction(instructions4[0], "jalr x0, x1, -2048\n");
+    
+    // Branch maximum positive offset (13-bit signed max: +4,095)
+    let mut builder5 = Riscv64InstructionBuilder::new();
+    builder5.beq(reg::X1, reg::X2, 4095); // Max positive branch immediate
+    let instructions5 = builder5.instructions();
+    compare_instruction(instructions5[0], "beq x1, x2, .+4095\n");
+    
+    // Branch maximum negative offset (13-bit signed min: -4,096)
+    let mut builder6 = Riscv64InstructionBuilder::new();
+    builder6.beq(reg::X1, reg::X2, -4096); // Min negative branch immediate  
+    let instructions6 = builder6.instructions();
+    compare_instruction(instructions6[0], "beq x1, x2, .-4096\n");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_branch_instructions_comprehensive() {
+    // Test branch instruction edge cases and ranges
+    // Branch instructions have 13-bit signed immediate range: -4096 to +4095 (even only)
+    
+    let branch_test_cases = vec![
+        (0, "."),           // Zero offset (branch to self)
+        (4, ".+4"),         // Small positive offset
+        (100, ".+100"),     // Medium positive offset
+        (1000, ".+1000"),   // Large positive offset
+        (-4, ".-4"),        // Small negative offset
+        (-100, ".-100"),    // Medium negative offset
+        (-1000, ".-1000"),  // Large negative offset
+    ];
+    
+    for (imm, offset_str) in branch_test_cases {
+        // Test BEQ instruction (funct3 = 0x0)
+        let mut builder = Riscv64InstructionBuilder::new();
+        builder.beq(reg::X1, reg::X2, imm);
+        let instructions = builder.instructions();
+        compare_instruction(instructions[0], &format!("beq x1, x2, {}\n", offset_str));
+        
+        // Test BNE instruction (funct3 = 0x1)
+        let mut builder2 = Riscv64InstructionBuilder::new();
+        builder2.bne(reg::X3, reg::X4, imm);
+        let instructions2 = builder2.instructions();
+        compare_instruction(instructions2[0], &format!("bne x3, x4, {}\n", offset_str));
+        
+        // Test BLT instruction (funct3 = 0x4)
+        let mut builder3 = Riscv64InstructionBuilder::new();
+        builder3.blt(reg::X5, reg::X6, imm);
+        let instructions3 = builder3.instructions();
+        compare_instruction(instructions3[0], &format!("blt x5, x6, {}\n", offset_str));
+        
+        // Test BGE instruction (funct3 = 0x5)
+        let mut builder4 = Riscv64InstructionBuilder::new();
+        builder4.bge(reg::X7, reg::X8, imm);
+        let instructions4 = builder4.instructions();
+        compare_instruction(instructions4[0], &format!("bge x7, x8, {}\n", offset_str));
+        
+        // Test BLTU instruction (funct3 = 0x6)
+        let mut builder5 = Riscv64InstructionBuilder::new();
+        builder5.bltu(reg::X9, reg::X10, imm);
+        let instructions5 = builder5.instructions();
+        compare_instruction(instructions5[0], &format!("bltu x9, x10, {}\n", offset_str));
+        
+        // Test BGEU instruction (funct3 = 0x7)
+        let mut builder6 = Riscv64InstructionBuilder::new();
+        builder6.bgeu(reg::X11, reg::X12, imm);
+        let instructions6 = builder6.instructions();
+        compare_instruction(instructions6[0], &format!("bgeu x11, x12, {}\n", offset_str));
+    }
+}
+
+#[cfg(feature = "std")]
+#[test]
 fn test_binary_correctness_jumps() {
     // Test JAL instruction with zero offset
     let mut builder = Riscv64InstructionBuilder::new();
