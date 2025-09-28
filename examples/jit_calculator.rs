@@ -20,12 +20,10 @@
 // Architecture-specific imports
 #[cfg(target_arch = "riscv64")]
 use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
-#[cfg(target_arch = "riscv64")]
-use jit_assembler::common::InstructionBuilder;
 
 #[cfg(target_arch = "aarch64")]
 use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
-#[cfg(target_arch = "aarch64")]
+
 use jit_assembler::common::InstructionBuilder;
 
 use std::fmt;
@@ -264,142 +262,177 @@ impl Parser {
 }
 
 /// JIT compiler that converts AST to machine code
-#[cfg(target_arch = "riscv64")]
+/// Unified implementation that works across supported architectures
 pub struct JitCompiler {
+    #[cfg(target_arch = "riscv64")]
     builder: Riscv64InstructionBuilder,
+    #[cfg(target_arch = "riscv64")]
     register_stack: Vec<jit_assembler::riscv::Register>,
-    next_temp_reg: usize,
-}
 
-/// JIT compiler that converts AST to machine code
-#[cfg(target_arch = "aarch64")]
-pub struct JitCompiler {
+    #[cfg(target_arch = "aarch64")]
     builder: Aarch64InstructionBuilder,
+    #[cfg(target_arch = "aarch64")]
     register_stack: Vec<jit_assembler::aarch64::Register>,
+
     next_temp_reg: usize,
 }
 
-#[cfg(target_arch = "riscv64")]
 impl JitCompiler {
-    /// Available temporary registers for computation
-    /// Using only T0-T6 (caller-saved temporaries) - safe to use without preservation
-    /// Avoiding:
-    /// - A0: function return value
-    /// - RA: return address  
-    /// - SP: stack pointer
-    /// - S0-S11: callee-saved (would need to preserve)
-    const TEMP_REGISTERS: &'static [jit_assembler::riscv::Register] = &[
+    /// Available temporary registers for computation (RISC-V)
+    #[cfg(target_arch = "riscv64")]
+    const TEMP_REGISTERS_RISCV: &'static [jit_assembler::riscv::Register] = &[
         reg::T0, reg::T1, reg::T2, reg::T3, reg::T4, reg::T5, reg::T6,
     ];
 
-    /// Allocate a temporary register
-    fn alloc_register(&mut self) -> Result<jit_assembler::riscv::Register, String> {
-        if self.next_temp_reg >= Self::TEMP_REGISTERS.len() {
-            return Err("Out of temporary registers".to_string());
-        }
-        let reg = Self::TEMP_REGISTERS[self.next_temp_reg];
-        self.next_temp_reg += 1;
-        self.register_stack.push(reg);
-        Ok(reg)
-    }
-
-    /// Free the last allocated register
-    fn free_register(&mut self) -> Result<(), String> {
-        if self.register_stack.is_empty() {
-            return Err("No registers to free".to_string());
-        }
-        self.register_stack.pop();
-        self.next_temp_reg = self.next_temp_reg.saturating_sub(1);
-        Ok(())
-    }
-}
-
-#[cfg(target_arch = "aarch64")]
-impl JitCompiler {
-    /// Available temporary registers for computation
-    /// Using X9-X15 (caller-saved temporaries) - safe to use without preservation
-    /// Avoiding:
-    /// - X0-X7: Argument/return registers  
-    /// - X8: Indirect result location register
-    /// - X16-X17: Intra-procedure-call registers
-    /// - X18: Platform register
-    /// - X19-X28: Callee-saved (would need to preserve)
-    /// - X29 (FP), X30 (LR), X31 (SP/XZR): Special purpose
-    const TEMP_REGISTERS: &'static [jit_assembler::aarch64::Register] = &[
+    /// Available temporary registers for computation (AArch64)
+    #[cfg(target_arch = "aarch64")]
+    const TEMP_REGISTERS_AARCH64: &'static [jit_assembler::aarch64::Register] = &[
         reg::X9, reg::X10, reg::X11, reg::X12, reg::X13, reg::X14, reg::X15,
     ];
 
-    /// Allocate a temporary register
-    fn alloc_register(&mut self) -> Result<jit_assembler::aarch64::Register, String> {
-        if self.next_temp_reg >= Self::TEMP_REGISTERS.len() {
-            return Err("Out of temporary registers".to_string());
-        }
-        let reg = Self::TEMP_REGISTERS[self.next_temp_reg];
-        self.next_temp_reg += 1;
-        self.register_stack.push(reg);
-        Ok(reg)
-    }
-
-    /// Free the last allocated register
-    fn free_register(&mut self) -> Result<(), String> {
-        if self.register_stack.is_empty() {
-            return Err("No registers to free".to_string());
-        }
-        self.register_stack.pop();
-        self.next_temp_reg = self.next_temp_reg.saturating_sub(1);
-        Ok(())
-    }
-}
-
-#[cfg(target_arch = "riscv64")]
-impl JitCompiler {
     pub fn new() -> Self {
         Self {
+            #[cfg(target_arch = "riscv64")]
             builder: Riscv64InstructionBuilder::new(),
+            #[cfg(target_arch = "riscv64")]
             register_stack: Vec::new(),
+
+            #[cfg(target_arch = "aarch64")]
+            builder: Aarch64InstructionBuilder::new(),
+            #[cfg(target_arch = "aarch64")]
+            register_stack: Vec::new(),
+
             next_temp_reg: 0,
         }
     }
 
+    /// Allocate a temporary register (architecture-agnostic interface)
+    #[cfg(target_arch = "riscv64")]
+    fn alloc_register(&mut self) -> Result<jit_assembler::riscv::Register, String> {
+        if self.next_temp_reg >= Self::TEMP_REGISTERS_RISCV.len() {
+            return Err("Out of temporary registers".to_string());
+        }
+        let reg = Self::TEMP_REGISTERS_RISCV[self.next_temp_reg];
+        self.next_temp_reg += 1;
+        self.register_stack.push(reg);
+        Ok(reg)
+    }
+
+    /// Allocate a temporary register (architecture-agnostic interface)
+    #[cfg(target_arch = "aarch64")]
+    fn alloc_register(&mut self) -> Result<jit_assembler::aarch64::Register, String> {
+        if self.next_temp_reg >= Self::TEMP_REGISTERS_AARCH64.len() {
+            return Err("Out of temporary registers".to_string());
+        }
+        let reg = Self::TEMP_REGISTERS_AARCH64[self.next_temp_reg];
+        self.next_temp_reg += 1;
+        self.register_stack.push(reg);
+        Ok(reg)
+    }
+
+    /// Free the last allocated register
+    fn free_register(&mut self) -> Result<(), String> {
+        #[cfg(target_arch = "riscv64")]
+        {
+            if self.register_stack.is_empty() {
+                return Err("No registers to free".to_string());
+            }
+            self.register_stack.pop();
+        }
+        
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.register_stack.is_empty() {
+                return Err("No registers to free".to_string());
+            }
+            self.register_stack.pop();
+        }
+        
+        self.next_temp_reg = self.next_temp_reg.saturating_sub(1);
+        Ok(())
+    }
+
     /// Compile an AST to a JIT function
-    /// The result is stored in register A0
+    /// The result is stored in the appropriate return register for each architecture
     pub fn compile_expression(&mut self, ast: &AstNode, config: &CalculatorConfig) -> Result<Box<dyn Fn() -> u64>, Box<dyn std::error::Error>> {
-        // Generate code that computes the expression result in A0
-        self.compile_node(ast, reg::A0)?;
-        self.builder.ret();
+        // Generate code that computes the expression result in the return register
+        #[cfg(target_arch = "riscv64")]
+        {
+            self.compile_node(ast, reg::A0)?;
+            self.builder.ret();
+        }
+        
+        #[cfg(target_arch = "aarch64")]
+        {
+            self.compile_node(ast, reg::X0)?;
+            self.builder.ret();
+        }
+        
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+        {
+            return Err("JIT compilation not supported on this architecture".into());
+        }
 
         // Show machine code if requested
         if config.show_machine_code {
             self.show_generated_code();
         }
 
-        let jit_func = unsafe {
-            self.builder.function::<fn() -> u64>()?
-        };
-
-        Ok(Box::new(move || jit_func.call()))
+        #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+        {
+            let jit_func = unsafe {
+                self.builder.function::<fn() -> u64>()?
+            };
+            Ok(Box::new(move || jit_func.call()))
+        }
+        
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+        {
+            // This will never be reached due to the early return above, but needed for type consistency
+            unreachable!()
+        }
     }
 
     /// Display the generated machine code
     pub fn show_generated_code(&self) {
-        let instructions = self.builder.instructions();
-        let bytes = instructions.to_bytes();
-        
-        println!("🤖 Generated Machine Code:");
-        println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
-        
-        for (i, instr) in instructions.iter().enumerate() {
-            let instr_bytes = instr.bytes();
-            println!("   [{:2}]: {:02X?} ({})", 
-                     i + 1, 
-                     instr_bytes,
-                     if instr.is_compressed() { "16-bit" } else { "32-bit" });
+        #[cfg(target_arch = "riscv64")]
+        {
+            let instructions = self.builder.instructions();
+            let bytes = instructions.to_bytes();
+            
+            println!("🤖 Generated Machine Code:");
+            println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
+            
+            for (i, instr) in instructions.iter().enumerate() {
+                let instr_bytes = instr.bytes();
+                println!("   [{:2}]: {:02X?} ({})", 
+                         i + 1, 
+                         instr_bytes,
+                         if instr.is_compressed() { "16-bit" } else { "32-bit" });
+            }
+            
+            println!("   Raw bytes: {:02X?}", bytes);
         }
         
-        println!("   Raw bytes: {:02X?}", bytes);
+        #[cfg(target_arch = "aarch64")]
+        {
+            let instructions = self.builder.instructions();
+            let bytes = instructions.to_bytes();
+            
+            println!("🤖 Generated Machine Code:");
+            println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
+            
+            for (i, instr) in instructions.iter().enumerate() {
+                let instr_bytes = instr.bytes();
+                println!("   [{:2}]: {:02X?} (32-bit)", i + 1, instr_bytes);
+            }
+            
+            println!("   Raw bytes: {:02X?}", bytes);
+        }
     }
 
-    /// Compile an AST node, storing the result in the specified register
+    /// Compile an AST node, storing the result in the specified register (RISC-V)
+    #[cfg(target_arch = "riscv64")]
     fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::riscv::Register) -> Result<(), String> {
         match node {
             AstNode::Number(value) => {
@@ -451,6 +484,65 @@ impl JitCompiler {
                     BinaryOperator::Remainder => {
                         // Note: This is unsigned remainder. For signed, use rem instead
                         self.builder.remu(result_reg, result_reg, right_reg);
+                    }
+                }
+
+                // Free the temporary register  
+                self.free_register()?; // right_reg
+                
+                Ok(())
+            }
+        }
+    }
+
+    /// Compile an AST node, storing the result in the specified register (AArch64)
+    #[cfg(target_arch = "aarch64")]
+    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::aarch64::Register) -> Result<(), String> {
+        match node {
+            AstNode::Number(value) => {
+                // Load immediate value into result register
+                if *value <= 65535 {
+                    // Small immediate: can use MOV immediate
+                    self.builder.mov_imm(result_reg, *value as u16);
+                } else {
+                    // Large immediate: use multiple MOV operations with shifts
+                    // For now, use MOV immediate for lower bits, then additional operations for upper bits
+                    let lower = (*value & 0xFFFF) as u16;
+                    let upper = (*value >> 16) as u16;
+                    
+                    self.builder.mov_imm(result_reg, lower);
+                    if upper != 0 {
+                        // This is simplified - real implementation would need MOVK instruction
+                        // For now, just handle values that fit in 16 bits
+                        return Err("Large immediate values not fully supported yet".to_string());
+                    }
+                }
+                Ok(())
+            }
+            AstNode::BinaryOp { left, op, right } => {
+                // Use result_reg for left operand to save registers
+                self.compile_node(left, result_reg)?;
+                
+                // Only allocate one temp register for right operand
+                let right_reg = self.alloc_register()?;
+                self.compile_node(right, right_reg)?;
+
+                // Perform operation: result_reg = result_reg op right_reg
+                match op {
+                    BinaryOperator::Add => {
+                        self.builder.add(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Subtract => {
+                        self.builder.sub(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Multiply => {
+                        self.builder.mul(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Divide => {
+                        self.builder.udiv(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Remainder => {
+                        self.builder.urem(result_reg, result_reg, right_reg);
                     }
                 }
 
