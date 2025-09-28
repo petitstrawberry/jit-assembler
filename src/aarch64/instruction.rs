@@ -150,7 +150,7 @@ pub fn encode_logical_reg(sf: u8, opc: u8, shift: u8, n: u8, rm: Register, imm6:
 /// Multiply instruction encoding
 pub fn encode_multiply(sf: u8, op31: u8, rm: Register, o0: u8, ra: Register, rn: Register, rd: Register) -> Instruction {
     let instr = ((sf as u32) << 31) |
-                (0b00011011 << 23) |  // Fixed bits for multiply
+                (0b00011011 << 23) |  // Fixed bits for multiply - data processing 3-source
                 ((op31 as u32) << 21) |
                 ((rm.value() as u32) << 16) |
                 ((o0 as u32) << 15) |
@@ -177,13 +177,13 @@ pub fn encode_ret(rn: Register) -> Instruction {
     // RET Xn instruction encoding according to AArch64 ISA
     // 31-25: 1101011 (fixed)
     // 24-21: 0001 (opc for RET)
-    // 20-16: 11111 (op2)  
+    // 20-16: 11110 (op2) - corrected from 11111
     // 15-10: 000000 (op3)
     // 9-5: Rn
     // 4-0: 00000 (op4)
     let instr = (0b1101011 << 25) |   // bits 31-25
                 (0b0001 << 21) |      // bits 24-21 (RET opc)
-                (0b11111 << 16) |     // bits 20-16 (op2)
+                (0b11110 << 16) |     // bits 20-16 (op2) - corrected
                 (0b000000 << 10) |    // bits 15-10 (op3) 
                 ((rn.value() as u32) << 5) |  // bits 9-5 (Rn)
                 0b00000;              // bits 4-0 (op4)
