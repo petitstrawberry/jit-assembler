@@ -507,15 +507,8 @@ impl JitCompiler {
                 } else {
                     // Large immediate: use multiple MOV operations with shifts
                     // For now, use MOV immediate for lower bits, then additional operations for upper bits
-                    let lower = (*value & 0xFFFF) as u16;
-                    let upper = (*value >> 16) as u16;
-                    
-                    self.builder.mov_imm(result_reg, lower);
-                    if upper != 0 {
-                        // This is simplified - real implementation would need MOVK instruction
-                        // For now, just handle values that fit in 16 bits
-                        return Err("Large immediate values not fully supported yet".to_string());
-                    }
+                    self.builder.mov_imm(result_reg, *value);
+
                 }
                 Ok(())
             }
