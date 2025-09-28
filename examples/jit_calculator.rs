@@ -20,9 +20,13 @@
 // Architecture-specific imports
 #[cfg(target_arch = "riscv64")]
 use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+#[cfg(target_arch = "riscv64")]
+use jit_assembler::common::InstructionBuilder;
 
 #[cfg(target_arch = "aarch64")]
 use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
+#[cfg(target_arch = "aarch64")]
+use jit_assembler::common::InstructionBuilder;
 
 use std::fmt;
 use std::env;
