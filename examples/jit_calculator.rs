@@ -501,15 +501,7 @@ impl JitCompiler {
         match node {
             AstNode::Number(value) => {
                 // Load immediate value into result register
-                if *value <= 65535 {
-                    // Small immediate: can use MOV immediate
-                    self.builder.mov_imm(result_reg, *value as u16);
-                } else {
-                    // Large immediate: use multiple MOV operations with shifts
-                    // For now, use MOV immediate for lower bits, then additional operations for upper bits
-                    self.builder.mov_imm(result_reg, *value);
-
-                }
+                self.builder.mov_imm(result_reg, *value);
                 Ok(())
             }
             AstNode::BinaryOp { left, op, right } => {
