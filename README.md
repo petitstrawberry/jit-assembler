@@ -32,10 +32,10 @@ jit-assembler = "0.1"
 
 ```rust
 use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
-use jit_assembler::jit_asm;
+use jit_assembler::riscv64_asm;
 
 // Macro style (concise and assembly-like)
-let instructions = jit_asm! {
+let instructions = riscv64_asm! {
     csrrw(reg::RA, csr::MSTATUS, reg::SP);   // CSR read-write using aliases
     csrr(reg::T0, csr::MSTATUS);             // CSR read (alias)
     addi(reg::A0, reg::ZERO, 100);           // Add immediate using aliases
@@ -151,11 +151,11 @@ Support for additional architectures is planned:
 
 ```rust
 use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
-use jit_assembler::jit_asm;
+use jit_assembler::riscv64_asm;
 
 // Simple function generator with macro
 fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
-    let instructions = jit_asm! {
+    let instructions = riscv64_asm! {
         addi(reg::A0, reg::ZERO, a);       // Load first operand into a0
         addi(reg::A1, reg::ZERO, b);       // Load second operand into a1
         add(reg::A0, reg::A0, reg::A1);    // Add them, result in a0
