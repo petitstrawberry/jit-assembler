@@ -262,7 +262,7 @@ fn test_jit_add_function() {
 #[cfg(feature = "std")]
 #[test]
 #[cfg(target_arch = "aarch64")]
-fn test_aarch64_jit_execution() {
+fn test_jit_execution() {
     // Test basic addition function
     let add_func = unsafe {
         Aarch64InstructionBuilder::new()
@@ -289,7 +289,7 @@ fn test_aarch64_jit_execution() {
 #[cfg(feature = "std")]
 #[test]
 #[cfg(target_arch = "aarch64")]
-fn test_aarch64_jit_multiplication() {
+fn test_jit_multiplication() {
     // Test multiplication function
     let mul_func = unsafe {
         Aarch64InstructionBuilder::new()
@@ -305,7 +305,7 @@ fn test_aarch64_jit_multiplication() {
 #[cfg(feature = "std")]
 #[test]
 #[cfg(target_arch = "aarch64")]
-fn test_aarch64_jit_division() {
+fn test_jit_division() {
     // Test unsigned division function
     let div_func = unsafe {
         Aarch64InstructionBuilder::new()
@@ -321,7 +321,7 @@ fn test_aarch64_jit_division() {
 #[cfg(feature = "std")]
 #[test]
 #[cfg(target_arch = "aarch64")]
-fn test_aarch64_jit_complex_expression() {
+fn test_jit_complex_expression() {
     // Test complex expression: (a + b) * c
     let complex_func = unsafe {
         Aarch64InstructionBuilder::new()
@@ -338,7 +338,7 @@ fn test_aarch64_jit_complex_expression() {
 #[cfg(feature = "std")]
 #[test]
 #[cfg(target_arch = "aarch64")]
-fn test_aarch64_jit_remainder_operation() {
+fn test_jit_remainder_operation() {
     // Test remainder operation: a % b using the urem instruction
     let rem_func = unsafe {
         Aarch64InstructionBuilder::new()

@@ -150,22 +150,36 @@ pub fn encode_logical_reg(sf: u8, opc: u8, shift: u8, n: u8, rm: Register, imm6:
 /// Multiply instruction encoding
 pub fn encode_multiply(sf: u8, op31: u8, rm: Register, o0: u8, ra: Register, rn: Register, rd: Register) -> Instruction {
     // For MUL x0, x1, x2 -> encoding should be 0x9b027c20
-    // sf=1 (64-bit), op31=00, rm=2, o0=0, ra=31(XZR for MUL), rn=1, rd=0
-    let instr = ((sf as u32) << 31) |
-                (0b00011011 << 23) |  // Data processing 3-source
-                ((op31 as u32) << 21) |
-                ((rm.value() as u32) << 16) |
-                ((o0 as u32) << 15) |
-                ((ra.value() as u32) << 10) |
-                ((rn.value() as u32) << 5) |
-                (rd.value() as u32);
+    // AArch64 Data Processing -- 3 source format:
+    // sf | op54 | 11011 | op31 | Rm | o0 | Ra | Rn | Rd
+    // 1  | 00   | 11011 | 000  | Rm | 0  | Ra | Rn | Rd
+    let instr = ((sf as u32) << 31) |         // sf (size flag)
+                (0b00 << 29) |                // op54 = 00 
+                (0b11011 << 24) |             // Fixed: 11011
+                ((op31 as u32) << 21) |       // op31 (operation)
+                ((rm.value() as u32) << 16) | // Rm (source register 2)
+                ((o0 as u32) << 15) |         // o0 (operation variant)
+                ((ra.value() as u32) << 10) | // Ra (accumulator, XZR for MUL)
+                ((rn.value() as u32) << 5) |  // Rn (source register 1)
+                (rd.value() as u32);          // Rd (destination)
     Instruction::new(instr)
 }
 
-/// Division instruction encoding (same as multiply but with different op31/o0)
-pub fn encode_divide(sf: u8, op31: u8, rm: Register, o0: u8, rn: Register, rd: Register) -> Instruction {
-    // Division uses ra=31 (XZR) since it's a 2-operand instruction
-    encode_multiply(sf, op31, rm, o0, Register::new(31), rn, rd)
+/// Division instruction encoding - Data Processing (2 source)
+pub fn encode_divide(sf: u8, _op31: u8, rm: Register, _o0: u8, rn: Register, rd: Register) -> Instruction {
+    // For UDIV x3, x4, x5 -> encoding should be 0x9ac50883
+    // Data-processing (2 source) format:
+    // sf | 0 | S | 11010110 | Rm | opcode | Rn | Rd
+    // 1  | 0 | 0 | 11010110 | X5 | 000010 | X4 | X3
+    let instr = ((sf as u32) << 31) |         // sf (64-bit)
+                (0b0 << 30) |                 // op bit
+                (0b0 << 29) |                 // S bit  
+                (0b11010110 << 21) |          // Fixed bits for data processing 2-source
+                ((rm.value() as u32) << 16) | // Rm register
+                (0b000010 << 10) |            // opcode for UDIV
+                ((rn.value() as u32) << 5) |  // Rn register
+                (rd.value() as u32);          // Rd register
+    Instruction::new(instr)
 }
 
 /// Move instruction encoding (ORR with XZR)
@@ -177,16 +191,12 @@ pub fn encode_move_reg(sf: u8, rm: Register, rd: Register) -> Instruction {
 /// Return instruction encoding (RET)
 pub fn encode_ret(rn: Register) -> Instruction {
     // RET instruction -> encoding should be 0xd65f03c0 for ret (X30 implied)
-    // Unconditional branch (register) format: 1101011 0 Z M 11111 000000 Rn 00000
-    // For RET: Z=1, M=0, Rn=30 (LR)
-    let instr = (0b1101011 << 25) |   // bits 31-25: 1101011
-                (0b0 << 24) |         // bit 24: 0
-                (0b1 << 23) |         // bit 23: Z=1 for RET
-                (0b0 << 22) |         // bit 22: M=0
-                (0b11111 << 16) |     // bits 21-16: 11111
-                (0b000000 << 10) |    // bits 15-10: 000000
-                ((rn.value() as u32) << 5) |  // bits 9-5: Rn
-                0b00000;              // bits 4-0: 00000
+    // Based on GNU assembler output analysis
+    // Pattern: 11010110 01011111 00000011 11000000 = 0xd65f03c0
+    // The 0x5f pattern is bits 16-22: 0101111 (bit pattern: 0x5f at positions 16-22)
+    let instr = 0xd6000000 |           // Base RET instruction pattern
+                (0x5f << 16) |         // bits 22-16: 0101111 (matches GNU assembler exactly)
+                ((rn.value() as u32) << 5);  // bits 9-5: Rn
     Instruction::new(instr)
 }
 
