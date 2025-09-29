@@ -166,17 +166,17 @@ pub fn encode_multiply(sf: u8, op31: u8, rm: Register, o0: u8, ra: Register, rn:
 }
 
 /// Division instruction encoding - Data Processing (2 source)
-pub fn encode_divide(sf: u8, _op31: u8, rm: Register, _o0: u8, rn: Register, rd: Register) -> Instruction {
-    // For UDIV x3, x4, x5 -> encoding should be 0x9ac50883
+pub fn encode_divide(sf: u8, opcode: u8, rm: Register, _o0: u8, rn: Register, rd: Register) -> Instruction {
     // Data-processing (2 source) format:
     // sf | 0 | S | 11010110 | Rm | opcode | Rn | Rd
-    // 1  | 0 | 0 | 11010110 | X5 | 000010 | X4 | X3
+    // For UDIV: opcode = 000010
+    // For SDIV: opcode = 000011
     let instr = ((sf as u32) << 31) |         // sf (64-bit)
                 (0b0 << 30) |                 // op bit
                 (0b0 << 29) |                 // S bit  
                 (0b11010110 << 21) |          // Fixed bits for data processing 2-source
                 ((rm.value() as u32) << 16) | // Rm register
-                (0b000010 << 10) |            // opcode for UDIV
+                ((opcode as u32) << 10) |     // opcode (UDIV=000010, SDIV=000011)
                 ((rn.value() as u32) << 5) |  // Rn register
                 (rd.value() as u32);          // Rd register
     Instruction::new(instr)
@@ -256,4 +256,32 @@ pub mod reg {
     // AArch64 ABI register aliases
     pub const FP: Register = X29;    // Frame pointer
     pub const LR: Register = X30;    // Link register
+}
+
+/// MOVZ instruction encoding - Move immediate with zero
+pub fn encode_movz(sf: u8, hw: u8, imm16: u16, rd: Register) -> Instruction {
+    // MOVZ Xd, #imm, LSL #(hw*16)
+    // sf | 10 | 100101 | hw | imm16 | Rd
+    // 1  | 10 | 100101 | hw | imm16 | Rd (for 64-bit)
+    let instr = ((sf as u32) << 31) |         // sf (64-bit)
+                (0b10 << 29) |                // opc = 10 for MOVZ
+                (0b100101 << 23) |            // Fixed bits for move wide immediate
+                ((hw as u32) << 21) |         // hw (shift amount / 16)
+                ((imm16 as u32) << 5) |       // imm16 (16-bit immediate)
+                (rd.value() as u32);          // Rd (destination register)
+    Instruction::new(instr)
+}
+
+/// MOVK instruction encoding - Move immediate with keep
+pub fn encode_movk(sf: u8, hw: u8, imm16: u16, rd: Register) -> Instruction {
+    // MOVK Xd, #imm, LSL #(hw*16)
+    // sf | 11 | 100101 | hw | imm16 | Rd
+    // 1  | 11 | 100101 | hw | imm16 | Rd (for 64-bit)
+    let instr = ((sf as u32) << 31) |         // sf (64-bit)
+                (0b11 << 29) |                // opc = 11 for MOVK
+                (0b100101 << 23) |            // Fixed bits for move wide immediate
+                ((hw as u32) << 21) |         // hw (shift amount / 16)
+                ((imm16 as u32) << 5) |       // imm16 (16-bit immediate)
+                (rd.value() as u32);          // Rd (destination register)
+    Instruction::new(instr)
 }

@@ -139,7 +139,7 @@ impl Aarch64InstructionBuilder {
     pub fn udiv(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
         self.track_written_register(rd);
         self.track_read_registers(&[rn, rm]);
-        let instr = encode_divide(1, 0b000, rm, 1, rn, rd); // sf=1, op31=000, o0=1 for UDIV
+        let instr = encode_divide(1, 0b000010, rm, 1, rn, rd); // sf=1, opcode=000010 for UDIV
         self.push(instr);
         self
     }
@@ -149,7 +149,7 @@ impl Aarch64InstructionBuilder {
     pub fn sdiv(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
         self.track_written_register(rd);
         self.track_read_registers(&[rn, rm]);
-        let instr = encode_divide(1, 0b001, rm, 1, rn, rd); // sf=1, op31=001, o0=1 for SDIV
+        let instr = encode_divide(1, 0b000011, rm, 1, rn, rd); // sf=1, opcode=000011 for SDIV
         self.push(instr);
         self
     }
@@ -163,7 +163,7 @@ impl Aarch64InstructionBuilder {
         
         // UDIV tmp, rn, rm
         self.track_read_registers(&[rn, rm]);
-        let div_instr = encode_divide(1, 0b000, rm, 1, rn, tmp);
+        let div_instr = encode_divide(1, 0b000010, rm, 1, rn, tmp); // opcode=000010 for UDIV
         self.push(div_instr);
         
         // MSUB rd, tmp, rm, rn  (rd = rn - tmp * rm)
@@ -232,31 +232,79 @@ impl Aarch64InstructionBuilder {
         self
     }
 
-    /// Generate immediate move instruction for larger constants
-    /// This is a helper to construct larger immediate values
+    /// Generate MOVZ instruction (Move with Zero)
+    /// MOVZ Xd, #imm16, LSL #(shift*16)
+    pub fn movz(&mut self, rd: Register, imm16: u16, shift: u8) -> &mut Self {
+        self.track_written_register(rd);
+        let instr = encode_movz(1, shift, imm16, rd); // sf=1 for 64-bit
+        self.push(instr);
+        self
+    }
+
+    /// Generate MOVK instruction (Move with Keep)
+    /// MOVK Xd, #imm16, LSL #(shift*16)
+    pub fn movk(&mut self, rd: Register, imm16: u16, shift: u8) -> &mut Self {
+        self.track_written_register(rd);
+        self.track_read_register(rd); // MOVK modifies existing register
+        let instr = encode_movk(1, shift, imm16, rd); // sf=1 for 64-bit
+        self.push(instr);
+        self
+    }
+
+    /// Generate immediate move instruction using MOVZ/MOVK for efficient 64-bit loads
     pub fn mov_imm(&mut self, rd: Register, imm: u64) -> &mut Self {
-        if imm <= 4095 {
-            // Can use ADD with immediate
-            self.addi(rd, reg::XZR, imm as u16);
-        } else {
-            // For now, construct using multiple smaller operations
-            // In a full implementation, this would use MOVZ/MOVK instructions
-            let lower = (imm & 0xFFF) as u16;
-            self.addi(rd, reg::XZR, lower);
-            
-            if imm > 0xFFF {
-                let upper = ((imm >> 12) & 0xFFF) as u16;
-                if upper > 0 {
-                    let temp_reg = reg::X17; // Use IP1 as temporary
-                    self.addi(temp_reg, reg::XZR, upper);
-                    // Multiply by 4096 to shift left by 12 bits
-                    let const_reg = reg::X16; // Use IP0 as temporary  
-                    self.addi(const_reg, reg::XZR, 4096);
-                    self.mul(temp_reg, temp_reg, const_reg);
-                    self.add(rd, rd, temp_reg);
-                }
+        if imm == 0 {
+            // Special case: move zero register
+            self.mov(rd, reg::XZR);
+            return self;
+        }
+
+        // Break down the 64-bit immediate into 16-bit chunks
+        let chunk0 = (imm & 0xFFFF) as u16;         // Bits 0-15
+        let chunk1 = ((imm >> 16) & 0xFFFF) as u16; // Bits 16-31  
+        let chunk2 = ((imm >> 32) & 0xFFFF) as u16; // Bits 32-47
+        let chunk3 = ((imm >> 48) & 0xFFFF) as u16; // Bits 48-63
+
+        // Find the first non-zero chunk to use MOVZ
+        let mut first_movz_done = false;
+        
+        if chunk0 != 0 {
+            self.movz(rd, chunk0, 0); // LSL #0
+            first_movz_done = true;
+        }
+        
+        if chunk1 != 0 {
+            if first_movz_done {
+                self.movk(rd, chunk1, 1); // LSL #16
+            } else {
+                self.movz(rd, chunk1, 1); // LSL #16
+                first_movz_done = true;
             }
         }
+        
+        if chunk2 != 0 {
+            if first_movz_done {
+                self.movk(rd, chunk2, 2); // LSL #32
+            } else {
+                self.movz(rd, chunk2, 2); // LSL #32
+                first_movz_done = true;
+            }
+        }
+        
+        if chunk3 != 0 {
+            if first_movz_done {
+                self.movk(rd, chunk3, 3); // LSL #48
+            } else {
+                self.movz(rd, chunk3, 3); // LSL #48
+                first_movz_done = true;
+            }
+        }
+
+        // If all chunks were zero (shouldn't happen due to early return), move zero
+        if !first_movz_done {
+            self.mov(rd, reg::XZR);
+        }
+
         self
     }
 

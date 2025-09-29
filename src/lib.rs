@@ -21,6 +21,8 @@
 //! ## Usage
 //!
 //! ```rust
+//! # #[cfg(feature = "riscv")]
+//! # {
 //! use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
 //!
@@ -39,7 +41,6 @@
 //! builder2.addi(reg::A0, reg::ZERO, 100);
 //! builder2.ret();
 //! let instructions2 = builder2.instructions();
-//!
 //! // InstructionCollection provides convenient methods
 //! let bytes = instructions.to_bytes();     // Convert all to bytes
 //! let size = instructions.total_size();    // Get total size
@@ -50,11 +51,14 @@
 //!     let bytes = instr.bytes();
 //!     // Write to executable memory...
 //! }
+//! # }
 //! ```
 //!
 //! ## JIT Execution (std-only)
 //!
 //! ```rust,no_run
+//! # #[cfg(feature = "riscv")]
+//! # {
 //! use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
 //! 
@@ -69,6 +73,7 @@
 //! // Call the JIT function naturally!
 //! let result = add_func.call(10, 20);
 //! assert_eq!(result, 30);
+//! # }
 //! ```
 
 #[cfg(not(feature = "std"))]
