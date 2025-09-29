@@ -17,7 +17,7 @@ jit-allocator2 = { version = "0.2", optional = true }
 hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"]}
 
 [features]
-default = ["std", "riscv"]
+default = ["std", "riscv", "aarch64"]
 std = ["jit-allocator2"]
 riscv = []
 x86_64 = []
@@ -27,3 +27,16 @@ register-tracking = ["hashbrown"]
 [dev-dependencies]
 tempfile = "3.0"
 # For tests that might need std features
+
+# Examples that require std feature for JIT execution
+[[example]]
+name = "jit_execution"
+required-features = ["std"]
+
+[[example]]
+name = "jit_calculator"
+required-features = ["std"]
+
+[[example]]
+name = "register_tracking_demo"
+required-features = ["register-tracking"]

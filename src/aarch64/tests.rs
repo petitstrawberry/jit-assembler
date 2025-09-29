@@ -9,7 +9,7 @@ use alloc::vec;
 use std::process::Command;
 #[cfg(feature = "std")]
 use std::fs;
-#[cfg(feature = "std")]
+
 use crate::common::InstructionBuilder;
 
 /// Helper function to assemble AArch64 assembly and extract binary data
