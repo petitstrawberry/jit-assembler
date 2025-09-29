@@ -10,7 +10,7 @@
 ///
 /// Usage:
 /// ```rust
-/// use jit_assembler::riscv::{reg, csr};
+/// use jit_assembler::riscv64::{reg, csr};
 /// use jit_assembler::common::InstructionBuilder;
 ///
 /// let instructions = jit_assembler::riscv64_asm! {
@@ -22,7 +22,7 @@
 #[macro_export]
 macro_rules! riscv64_asm {
     ($($method:ident($($args:expr),*);)*) => {{
-        $crate::jit_asm_generic!($crate::riscv::Riscv64InstructionBuilder, $($method($($args),*);)*)
+        $crate::jit_asm_generic!($crate::riscv64::Riscv64InstructionBuilder, $($method($($args),*);)*)
     }};
 }
 

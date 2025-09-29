@@ -185,8 +185,18 @@ fn generate_csr_routine() -> Vec<u8> {
 ```rust
 use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
 use jit_assembler::common::InstructionBuilder;
+use jit_assembler::aarch64_asm;
 
-// Create an AArch64 function that adds two numbers
+// Macro style (concise and assembly-like)
+fn generate_aarch64_add_function_macro() -> Vec<u8> {
+    let instructions = aarch64_asm! {
+        add(reg::X0, reg::X0, reg::X1);  // Add first two arguments (X0 + X1 -> X0)
+        ret();                           // Return
+    };
+    instructions
+}
+
+// Builder pattern style
 fn generate_aarch64_add_function() -> Vec<u8> {
     let mut builder = Aarch64InstructionBuilder::new();
     
@@ -197,7 +207,17 @@ fn generate_aarch64_add_function() -> Vec<u8> {
     builder.instructions().to_bytes()
 }
 
-// More complex AArch64 example with immediate values
+// More complex AArch64 example with immediate values (macro style)
+fn generate_aarch64_calculation_macro() -> Vec<u8> {
+    aarch64_asm! {
+        mov_imm(reg::X1, 42);            // Load immediate 42 into X1
+        mul(reg::X0, reg::X0, reg::X1);  // Multiply X0 by 42
+        addi(reg::X0, reg::X0, 100);     // Add 100 to result
+        ret();                           // Return
+    }
+}
+
+// More complex AArch64 example with immediate values (builder style)
 fn generate_aarch64_calculation() -> Vec<u8> {
     let mut builder = Aarch64InstructionBuilder::new();
     
@@ -216,7 +236,7 @@ fn generate_aarch64_calculation() -> Vec<u8> {
 Create and execute functions directly at runtime:
 
 ```rust
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 use jit_assembler::common::InstructionBuilder;
 
 // Create a JIT function that adds two numbers
@@ -267,7 +287,7 @@ jit-assembler = { version = "0.1", features = ["register-tracking"] }
 ### Usage Example
 
 ```rust
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 use jit_assembler::common::InstructionBuilder;
 
 let mut builder = Riscv64InstructionBuilder::new();

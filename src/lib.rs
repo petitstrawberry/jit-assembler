@@ -23,7 +23,7 @@
 //! ```rust
 //! # #[cfg(feature = "riscv")]
 //! # {
-//! use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
+//! use jit_assembler::riscv64::{reg, csr, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
 //!
 //! // Method chaining style (recommended)
@@ -35,7 +35,15 @@
 //!     .ret()
 //!     .instructions();
 //!
-//! // Traditional style
+//! // Macro style (concise and assembly-like)
+//! let instructions3 = jit_assembler::riscv64_asm! {
+//!     csrrw(reg::RA, csr::MSTATUS, reg::SP);
+//!     addi(reg::A0, reg::ZERO, 100);
+//!     add(reg::A1, reg::A0, reg::SP);
+//!     ret();
+//! };
+//!
+//! // Traditional style  
 //! let mut builder2 = Riscv64InstructionBuilder::new();
 //! builder2.csrrw(reg::RA, csr::MSTATUS, reg::SP);
 //! builder2.addi(reg::A0, reg::ZERO, 100);
@@ -69,6 +77,14 @@
 //!     .ret()                           // Return
 //!     .instructions();
 //!
+//! // Macro style (concise and assembly-like)
+//! let instructions3 = jit_assembler::aarch64_asm! {
+//!     add(reg::X0, reg::X0, reg::X1);  // Add first two arguments
+//!     mov_imm(reg::X1, 42);            // Load immediate 42 into X1
+//!     mul(reg::X0, reg::X0, reg::X1);  // Multiply X0 by 42
+//!     ret();                           // Return
+//! };
+//!
 //! // More complex AArch64 example with immediate values
 //! let mut builder2 = Aarch64InstructionBuilder::new();
 //! let instructions2 = builder2
@@ -85,7 +101,7 @@
 //! ```rust,no_run
 //! # #[cfg(feature = "riscv")]
 //! # {
-//! use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+//! use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
 //! 
 //! // Create a JIT function that adds two numbers
@@ -114,7 +130,7 @@ pub use common::jit::{CallableJitFunction, JitError};
 
 // Architecture-specific modules
 #[cfg(feature = "riscv")]
-pub mod riscv;
+pub mod riscv64;
 
 #[cfg(feature = "x86_64")]
 pub mod x86_64;
@@ -124,7 +140,7 @@ pub mod aarch64;
 
 // Re-export for convenience (default to RISC-V if available)
 #[cfg(feature = "riscv")]
-pub use riscv as default_arch;
+pub use riscv64 as default_arch;
 
 /// Generic JIT assembler macro - Reference implementation
 ///

@@ -9,7 +9,7 @@
 use jit_assembler::common::InstructionBuilder;
 
 #[cfg(feature = "riscv")]
-use jit_assembler::riscv::{reg as riscv_reg, csr, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg as riscv_reg, csr, Riscv64InstructionBuilder};
 
 #[cfg(feature = "aarch64")]
 use jit_assembler::aarch64::{reg as aarch64_reg, Aarch64InstructionBuilder};

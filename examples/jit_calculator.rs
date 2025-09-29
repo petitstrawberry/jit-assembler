@@ -19,7 +19,7 @@
 
 // Architecture-specific imports
 #[cfg(target_arch = "riscv64")]
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 
 #[cfg(target_arch = "aarch64")]
 use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
@@ -267,7 +267,7 @@ pub struct JitCompiler {
     #[cfg(target_arch = "riscv64")]
     builder: Riscv64InstructionBuilder,
     #[cfg(target_arch = "riscv64")]
-    register_stack: Vec<jit_assembler::riscv::Register>,
+    register_stack: Vec<jit_assembler::riscv64::Register>,
 
     #[cfg(target_arch = "aarch64")]
     builder: Aarch64InstructionBuilder,
@@ -280,7 +280,7 @@ pub struct JitCompiler {
 impl JitCompiler {
     /// Available temporary registers for computation (RISC-V)
     #[cfg(target_arch = "riscv64")]
-    const TEMP_REGISTERS_RISCV: &'static [jit_assembler::riscv::Register] = &[
+    const TEMP_REGISTERS_RISCV: &'static [jit_assembler::riscv64::Register] = &[
         reg::T0, reg::T1, reg::T2, reg::T3, reg::T4, reg::T5, reg::T6,
     ];
 
@@ -308,7 +308,7 @@ impl JitCompiler {
 
     /// Allocate a temporary register (architecture-agnostic interface)
     #[cfg(target_arch = "riscv64")]
-    fn alloc_register(&mut self) -> Result<jit_assembler::riscv::Register, String> {
+    fn alloc_register(&mut self) -> Result<jit_assembler::riscv64::Register, String> {
         if self.next_temp_reg >= Self::TEMP_REGISTERS_RISCV.len() {
             return Err("Out of temporary registers".to_string());
         }
@@ -433,7 +433,7 @@ impl JitCompiler {
 
     /// Compile an AST node, storing the result in the specified register (RISC-V)
     #[cfg(target_arch = "riscv64")]
-    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::riscv::Register) -> Result<(), String> {
+    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::riscv64::Register) -> Result<(), String> {
         match node {
             AstNode::Number(value) => {
                 // Load immediate value into result register

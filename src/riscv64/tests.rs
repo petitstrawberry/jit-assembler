@@ -1,4 +1,4 @@
-use crate::riscv::{reg, csr, Instruction, Riscv64InstructionBuilder};
+use crate::riscv64::{reg, csr, Instruction, Riscv64InstructionBuilder};
 
 #[cfg(feature = "std")]
 use std::vec;

@@ -41,6 +41,7 @@
 
 pub mod instruction;
 pub mod builder;
+pub mod macros;
 
 #[cfg(test)]
 mod tests;
