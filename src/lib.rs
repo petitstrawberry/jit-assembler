@@ -21,7 +21,7 @@
 //! ## Usage
 //!
 //! ```rust
-//! # #[cfg(feature = "riscv")]
+//! # #[cfg(feature = "riscv64")]
 //! # {
 //! use jit_assembler::riscv64::{reg, csr, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
@@ -99,7 +99,7 @@
 //! ## JIT Execution (std-only)
 //!
 //! ```rust,no_run
-//! # #[cfg(feature = "riscv")]
+//! # #[cfg(feature = "riscv64")]
 //! # {
 //! use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
@@ -129,7 +129,7 @@ pub mod common;
 pub use common::jit::{CallableJitFunction, JitError};
 
 // Architecture-specific modules
-#[cfg(feature = "riscv")]
+#[cfg(feature = "riscv64")]
 pub mod riscv64;
 
 #[cfg(feature = "x86_64")]
@@ -139,7 +139,7 @@ pub mod x86_64;
 pub mod aarch64;
 
 // Re-export for convenience (default to RISC-V if available)
-#[cfg(feature = "riscv")]
+#[cfg(feature = "riscv64")]
 pub use riscv64 as default_arch;
 
 /// Generic JIT assembler macro - Reference implementation

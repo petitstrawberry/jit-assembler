@@ -17,9 +17,9 @@ jit-allocator2 = { version = "0.2", optional = true }
 hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"]}
 
 [features]
-default = ["std", "riscv", "aarch64"]
+default = ["std", "riscv64", "aarch64"]
 std = ["jit-allocator2"]
-riscv = []
+riscv64 = []
 x86_64 = []
 aarch64 = []
 register-tracking = ["hashbrown"]

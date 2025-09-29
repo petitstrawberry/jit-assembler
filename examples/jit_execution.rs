@@ -8,7 +8,7 @@
 
 use jit_assembler::common::InstructionBuilder;
 
-#[cfg(feature = "riscv")]
+#[cfg(feature = "riscv64")]
 use jit_assembler::riscv64::{reg as riscv_reg, csr, Riscv64InstructionBuilder};
 
 #[cfg(feature = "aarch64")]
@@ -18,7 +18,7 @@ fn main() {
     println!("JIT Assembler - JIT Execution Example");
     println!("=====================================");
 
-    #[cfg(feature = "riscv")]
+    #[cfg(feature = "riscv64")]
     riscv_examples();
 
     #[cfg(feature = "aarch64")]
@@ -28,7 +28,7 @@ fn main() {
     println!("No architecture features enabled. Enable 'riscv' or 'aarch64' features to see examples.");
 }
 
-#[cfg(feature = "riscv")]
+#[cfg(feature = "riscv64")]
 fn riscv_examples() {
     println!("\n=== RISC-V Examples ===");
 
