@@ -134,6 +134,16 @@ impl Aarch64InstructionBuilder {
         self
     }
 
+    /// Generate MSUB instruction (64-bit multiply-subtract)
+    /// MSUB Xd, Xn, Xm, Xa -> Xd = Xa - (Xn * Xm)
+    pub fn msub(&mut self, rd: Register, rn: Register, rm: Register, ra: Register) -> &mut Self {
+        self.track_written_register(rd);
+        self.track_read_registers(&[rn, rm, ra]);
+        let instr = encode_multiply(1, 0b000, rm, 1, ra, rn, rd); // sf=1, op31=000, o0=1 (MSUB), ra=minuend
+        self.push(instr);
+        self
+    }
+
     /// Generate UDIV instruction (64-bit unsigned division)
     /// UDIV Xd, Xn, Xm
     pub fn udiv(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
@@ -154,25 +164,31 @@ impl Aarch64InstructionBuilder {
         self
     }
 
-    /// Generate remainder operation using MSUB after division
-    /// This creates a sequence: UDIV tmp, rn, rm; MSUB rd, tmp, rm, rn
-    /// Result: rd = rn - (rn / rm) * rm = rn % rm
-    pub fn urem(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
-        // We need a temporary register - use X17 (IP1) which is caller-saved
-        let tmp = reg::X17;
-        
-        // UDIV tmp, rn, rm
-        self.track_read_registers(&[rn, rm]);
-        let div_instr = encode_divide(1, 0b000010, rm, 1, rn, tmp); // opcode=000010 for UDIV
-        self.push(div_instr);
-        
-        // MSUB rd, tmp, rm, rn  (rd = rn - tmp * rm)
-        self.track_written_register(rd);
-        self.track_read_registers(&[tmp, rm, rn]);
-        let msub_instr = encode_multiply(1, 0b000, rm, 1, rn, tmp, rd); // MSUB: op31=000, o0=1
-        self.push(msub_instr);
-        self
-    }
+    // DEPRECATED: urem was using a hardcoded temporary register (X17) which is unsafe
+    // Users should implement remainder manually using udiv + msub with their own temp register
+    // Example: 
+    //   .udiv(temp_reg, dividend, divisor)  // temp = dividend / divisor  
+    //   .msub(result, temp, divisor, dividend)  // result = dividend - (temp * divisor)
+    //
+    // /// Generate remainder operation using MSUB after division  
+    // /// This creates a sequence: UDIV tmp, rn, rm; MSUB rd, tmp, rm, rn
+    // /// Result: rd = rn - (rn / rm) * rm = rn % rm
+    // pub fn urem(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
+    //     // We need a temporary register - use X17 (IP1) which is caller-saved
+    //     let tmp = reg::X17;
+    //     
+    //     // UDIV tmp, rn, rm
+    //     self.track_read_registers(&[rn, rm]);
+    //     let div_instr = encode_divide(1, 0b000010, rm, 1, rn, tmp); // opcode=000010 for UDIV
+    //     self.push(div_instr);
+    //     
+    //     // MSUB rd, tmp, rm, rn  (rd = rn - tmp * rm)
+    //     self.track_written_register(rd);
+    //     self.track_read_registers(&[tmp, rm, rn]);
+    //     let msub_instr = encode_multiply(1, 0b000, rm, 1, rn, tmp, rd); // MSUB: op31=000, o0=1
+    //     self.push(msub_instr);
+    //     self
+    // }
 
     /// Generate ORR instruction (logical OR, 64-bit)
     /// ORR Xd, Xn, Xm

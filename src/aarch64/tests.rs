@@ -357,10 +357,11 @@ fn test_jit_complex_expression() {
 #[test]
 #[cfg(target_arch = "aarch64")]
 fn test_jit_remainder_operation() {
-    // Test remainder operation: a % b using the urem instruction
+    // Test remainder operation: a % b using manual udiv + msub
     let rem_func = unsafe {
         Aarch64InstructionBuilder::new()
-            .urem(reg::X0, reg::X0, reg::X1) // X0 = X0 % X1
+            .udiv(reg::X2, reg::X0, reg::X1) // X2 = X0 / X1 (use X2 as temp)
+            .msub(reg::X0, reg::X2, reg::X1, reg::X0) // X0 = X0 - (X2 * X1) = X0 % X1
             .ret()                           // Return
             .function::<fn(u64, u64) -> u64>()
     }.expect("Failed to create remainder function");
@@ -574,10 +575,12 @@ fn test_all_arithmetic_instructions() {
     builder.mul(reg::X10, reg::X11, reg::X12);
     builder.udiv(reg::X13, reg::X14, reg::X15);
     builder.sdiv(reg::X16, reg::X17, reg::X18);
-    builder.urem(reg::X19, reg::X20, reg::X21);
+    // Manual remainder: X19 = X20 % X21 using X17 as temp
+    builder.udiv(reg::X17, reg::X20, reg::X21);   // X17 = X20 / X21
+    builder.msub(reg::X19, reg::X17, reg::X21, reg::X20); // X19 = X20 - (X17 * X21)
     
     let instructions = builder.instructions();
-    assert_eq!(instructions.len(), 9); // urem generates 2 instructions (udiv + msub), so total is 9
+    assert_eq!(instructions.len(), 9); // manual remainder generates 2 instructions (udiv + msub), so total is 9
     
     // Verify each instruction is encoded properly (basic check)
     for instr in instructions {

@@ -122,7 +122,7 @@ The AArch64 backend supports:
 - **Basic arithmetic operations**:
   - **Register operations**: `add`, `sub`, `mul`, `udiv`, `sdiv`
   - **Immediate operations**: `addi`, `subi`
-  - **Remainder operations**: `urem` (unsigned remainder)
+  - **Multiply-subtract operations**: `msub` (multiply-subtract for implementing remainder)
 - **Logical operations**:
   - **Register operations**: `and`, `or`, `xor` (EOR)
   - **Move operations**: `mov`
