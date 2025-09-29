@@ -231,7 +231,7 @@ fn test_csr_addresses() {
 #[test]
 fn test_csr_with_macro() {
     // Test CSR operations using macro syntax
-    let instructions = crate::jit_asm! {
+    let instructions = crate::riscv64_asm! {
         // M-mode CSR operations
         csrr(reg::T0, csr::MSTATUS);     // Read machine status
         csrr(reg::T1, csr::MISA);        // Read machine ISA
@@ -653,7 +653,7 @@ fn test_privileged_instructions() {
 #[test]
 fn test_aliases_with_macro() {
     // Test using aliases in macro
-    let instructions = crate::jit_asm! {
+    let instructions = crate::riscv64_asm! {
         addi(reg::A0, reg::ZERO, 42);      // Load 42 into a0
         add(reg::A1, reg::A0, reg::SP);     // Add a0 and sp, store in a1
         sub(reg::T0, reg::A1, reg::A0);     // Subtract a0 from a1, store in t0
@@ -689,7 +689,7 @@ fn test_comprehensive_alias_demo() {
     println!();
 
     // Test with macro (function-like code)
-    let instructions = crate::jit_asm! {
+    let instructions = crate::riscv64_asm! {
         addi(reg::SP, reg::SP, -16);        // Allocate stack space
         sd(reg::RA, reg::SP, 8);            // Save return address
         sd(reg::S0, reg::SP, 0);            // Save frame pointer
@@ -716,7 +716,7 @@ fn test_comprehensive_alias_demo() {
 
 #[test] 
 fn test_macro_chaining() {
-    let instructions = crate::jit_asm! {
+    let instructions = crate::riscv64_asm! {
         addi(reg::X1, reg::X0, 10);
         add(reg::X2, reg::X1, reg::X0);
         csrrw(reg::X3, csr::MSTATUS, reg::X2);
@@ -738,7 +738,7 @@ fn test_macro_chaining() {
 #[test]
 fn test_macro_comprehensive() {
     // Test multiple instruction types through macro
-    let instructions = crate::jit_asm! {
+    let instructions = crate::riscv64_asm! {
         lui(reg::X1, 0x12345);
         addi(reg::X2, reg::X1, 100);
         add(reg::X3, reg::X1, reg::X2);
@@ -1577,7 +1577,7 @@ fn test_binary_correctness_multiline_comprehensive() {
 #[test]
 fn test_binary_correctness_multiline_macro_comparison() {
     // Compare macro-generated instructions with builder-generated instructions
-    let macro_instructions = crate::jit_asm! {
+    let macro_instructions = crate::riscv64_asm! {
         lui(reg::X1, 0x12345);
         addi(reg::X2, reg::X1, 100);
         add(reg::X3, reg::X1, reg::X2);
