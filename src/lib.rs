@@ -6,7 +6,7 @@
 //!
 //! ## Features
 //!
-//! - **Multi-architecture support**: RISC-V, x86-64, ARM64 (planned)
+//! - **Multi-architecture support**: RISC-V, AArch64, x86-64 (planned)
 //! - **Host-independent**: Runs on any host architecture to generate target code
 //! - **No-std compatible**: Works in both `std` and `no_std` environments
 //! - **Macro-based DSL**: Convenient syntax for writing assembly
@@ -15,7 +15,7 @@
 //! ## Supported Architectures
 //!
 //! - **RISC-V 64-bit** (`riscv` feature, enabled by default)
-//! - **AArch64** (`aarch64` feature) - Basic arithmetic and logical operations
+//! - **AArch64** (`aarch64` feature, enabled by default) - Basic arithmetic and logical operations
 //! - **x86-64** (`x86_64` feature) - Coming soon
 //!
 //! ## Usage
@@ -51,6 +51,32 @@
 //!     let bytes = instr.bytes();
 //!     // Write to executable memory...
 //! }
+//! # }
+//! ```
+//!
+//! ## AArch64 Usage
+//!
+//! ```rust
+//! # #[cfg(feature = "aarch64")]
+//! # {
+//! use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
+//! use jit_assembler::common::InstructionBuilder;
+//!
+//! // Create an AArch64 function that adds two numbers
+//! let mut builder = Aarch64InstructionBuilder::new();
+//! let instructions = builder
+//!     .add(reg::X0, reg::X0, reg::X1)  // Add first two arguments (X0 + X1 -> X0)
+//!     .ret()                           // Return
+//!     .instructions();
+//!
+//! // More complex AArch64 example with immediate values
+//! let mut builder2 = Aarch64InstructionBuilder::new();
+//! let instructions2 = builder2
+//!     .mov_imm(reg::X1, 42)            // Load immediate 42 into X1
+//!     .mul(reg::X0, reg::X0, reg::X1)  // Multiply X0 by 42
+//!     .addi(reg::X0, reg::X0, 100)     // Add 100 to result
+//!     .ret()                           // Return
+//!     .instructions();
 //! # }
 //! ```
 //!

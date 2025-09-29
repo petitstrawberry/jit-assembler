@@ -16,7 +16,7 @@ A multi-architecture JIT assembler library for runtime code generation that work
 ## Supported Architectures
 
 - **RISC-V 64-bit** (`riscv` feature, enabled by default)
-- **AArch64** (`aarch64` feature) - Basic arithmetic and logical operations
+- **AArch64** (`aarch64` feature, enabled by default) - Basic arithmetic and logical operations
 - **x86-64** (`x86_64` feature) - Coming soon
 
 ## Usage
@@ -84,6 +84,10 @@ For `no_std` environments, disable the default features:
 ```toml
 [dependencies]
 jit-assembler = { version = "0.1", default-features = false, features = ["riscv"] }
+# Or for AArch64 only:
+# jit-assembler = { version = "0.1", default-features = false, features = ["aarch64"] }
+# Or for both architectures without std:
+# jit-assembler = { version = "0.1", default-features = false, features = ["riscv", "aarch64"] }
 ```
 
 ## Architecture Support
