@@ -2,7 +2,7 @@ name: Multi-Architecture CI
 
 on:
   push:
-    branches: [ ”main", "develop" ]
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "develop" ]
 
