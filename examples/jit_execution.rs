@@ -24,7 +24,7 @@ fn main() {
     #[cfg(feature = "aarch64")]
     aarch64_examples();
 
-    #[cfg(not(any(feature = "riscv", feature = "aarch64")))]
+    #[cfg(not(any(feature = "riscv64", feature = "aarch64")))]
     println!("No architecture features enabled. Enable 'riscv' or 'aarch64' features to see examples.");
 }
 
