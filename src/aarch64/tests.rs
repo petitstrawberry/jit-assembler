@@ -1,4 +1,6 @@
-use crate::aarch64::{reg, Instruction, Aarch64InstructionBuilder};
+use crate::aarch64::{reg, Aarch64InstructionBuilder};
+#[cfg(feature = "std")]
+use crate::aarch64::Instruction;
 
 
 
