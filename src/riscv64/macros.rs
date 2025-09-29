@@ -10,18 +10,19 @@
 ///
 /// Usage:
 /// ```rust
-/// use jit_assembler::riscv::{reg, csr};
+/// use jit_assembler::riscv64::{reg, csr};
+/// use jit_assembler::common::InstructionBuilder;
 ///
-/// let instructions = jit_assembler::jit_asm! {
+/// let instructions = jit_assembler::riscv64_asm! {
 ///     csrrw(reg::X1, csr::MSTATUS, reg::X2);
 ///     addi(reg::X3, reg::X1, 100);
 ///     add(reg::X4, reg::X1, reg::X3);
 /// };
 /// ```
 #[macro_export]
-macro_rules! jit_asm {
+macro_rules! riscv64_asm {
     ($($method:ident($($args:expr),*);)*) => {{
-        $crate::jit_asm_generic!($crate::riscv::InstructionBuilder, $($method($($args),*);)*)
+        $crate::jit_asm_generic!($crate::riscv64::Riscv64InstructionBuilder, $($method($($args),*);)*)
     }};
 }
 

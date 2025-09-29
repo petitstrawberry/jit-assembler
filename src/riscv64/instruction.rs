@@ -11,7 +11,7 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 /// RISC-V register representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Register(pub u8);
 
 impl Register {
@@ -27,6 +27,29 @@ impl Register {
 impl RegisterTrait for Register {
     fn id(&self) -> u32 {
         self.0 as u32
+    }
+    
+    fn abi_class(&self) -> crate::common::AbiClass {
+        use crate::common::AbiClass;
+        
+        match self.0 {
+            // Caller-saved registers (do not need to be preserved across calls)
+            1 => AbiClass::CallerSaved,         // RA (return address) - caller-saved
+            5..=7 | 28..=31 => AbiClass::CallerSaved,  // T0-T2, T3-T6 (temporaries)
+            10..=17 => AbiClass::CallerSaved,   // A0-A7 (arguments/return values)
+            
+            // Callee-saved registers (must be preserved across calls)
+            2 => AbiClass::CalleeSaved,         // SP (stack pointer) - callee-saved
+            8..=9 | 18..=27 => AbiClass::CalleeSaved,  // S0-S1, S2-S11 (saved registers)
+            
+            // Special-purpose registers
+            0 => AbiClass::Special,  // X0 (zero register) - hardwired to zero
+            3 => AbiClass::Special,  // GP (global pointer) - special purpose
+            4 => AbiClass::Special,  // TP (thread pointer) - special purpose
+
+            // Default to Special for any unhandled registers
+            _ => AbiClass::Special,
+        }
     }
 }
 
@@ -147,6 +170,12 @@ pub fn encode_csr_imm_type(opcode: u8, rd: Register, funct3: u8, uimm: u8, csr: 
     Instruction::Standard(instr)
 }
 
+/// Privileged instruction encoding (special SYSTEM instructions)
+pub fn encode_privileged_type(opcode: u8, funct12: u16) -> Instruction {
+    let instr = ((funct12 as u32) << 20) | (opcode as u32);
+    Instruction::Standard(instr)
+}
+
 /// R-type instruction encoding
 pub fn encode_r_type(opcode: u8, rd: Register, funct3: u8, rs1: Register, rs2: Register, funct7: u8) -> Instruction {
     let instr = ((funct7 as u32) << 25) | ((rs2.value() as u32) << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
@@ -175,7 +204,7 @@ pub fn encode_b_type(opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: 
 
 /// U-type instruction encoding (Upper immediate)
 pub fn encode_u_type(opcode: u8, rd: Register, imm: u32) -> Instruction {
-    let imm = imm & 0xfffff000; // 20-bit immediate in upper bits
+    let imm = (imm & 0xfffff) << 12; // 20-bit immediate shifted to upper bits
     let instr = imm | ((rd.value() as u32) << 7) | (opcode as u32);
     Instruction::Standard(instr)
 }
@@ -215,6 +244,15 @@ pub mod system_funct3 {
     pub const CSRRWI: u8 = 0x5;
     pub const CSRRSI: u8 = 0x6;
     pub const CSRRCI: u8 = 0x7;
+}
+
+/// Privileged instruction function codes (funct12 field)
+pub mod privileged_funct12 {
+    pub const ECALL: u16 = 0x000;  // Environment call
+    pub const EBREAK: u16 = 0x001; // Environment break
+    pub const SRET: u16 = 0x102;   // Supervisor return
+    pub const MRET: u16 = 0x302;   // Machine return
+    pub const WFI: u16 = 0x105;    // Wait for interrupt
 }
 
 /// Branch instruction function codes
@@ -258,10 +296,29 @@ pub mod alu_funct3 {
     pub const AND: u8 = 0x7;
 }
 
+/// M Extension (Multiply/Divide) instruction function codes
+/// All M-extension instructions use funct7 = 0x01 and opcode = OP (0x33)
+pub mod m_funct3 {
+    pub const MUL: u8 = 0x0;      // Multiply (low 64 bits)
+    pub const MULH: u8 = 0x1;     // Multiply high (signed × signed)
+    pub const MULHSU: u8 = 0x2;   // Multiply high (signed × unsigned)
+    pub const MULHU: u8 = 0x3;    // Multiply high (unsigned × unsigned)
+    pub const DIV: u8 = 0x4;      // Divide (signed)
+    pub const DIVU: u8 = 0x5;     // Divide (unsigned)
+    pub const REM: u8 = 0x6;      // Remainder (signed)
+    pub const REMU: u8 = 0x7;     // Remainder (unsigned)
+}
+
+/// M Extension funct7 code
+pub mod m_funct7 {
+    pub const M_EXT: u8 = 0x01;
+}
+
 /// Common CSR addresses
 pub mod csr {
     use super::Csr;
     
+    // Machine-mode CSRs
     pub const MSTATUS: Csr = Csr::new(0x300);
     pub const MISA: Csr = Csr::new(0x301);
     pub const MEDELEG: Csr = Csr::new(0x302);
@@ -274,12 +331,23 @@ pub mod csr {
     pub const MTVAL: Csr = Csr::new(0x343);
     pub const MIP: Csr = Csr::new(0x344);
     pub const MHARTID: Csr = Csr::new(0xf14);
+    
+    // Supervisor-mode CSRs
+    pub const SSTATUS: Csr = Csr::new(0x100);
+    pub const SIE: Csr = Csr::new(0x104);
+    pub const STVEC: Csr = Csr::new(0x105);
+    pub const SSCRATCH: Csr = Csr::new(0x140);
+    pub const SEPC: Csr = Csr::new(0x141);
+    pub const SCAUSE: Csr = Csr::new(0x142);
+    pub const STVAL: Csr = Csr::new(0x143);
+    pub const SIP: Csr = Csr::new(0x144);
 }
 
 /// Common registers
 pub mod reg {
     use super::Register;
     
+    // Standard register names (x0-x31)
     pub const X0: Register = Register::new(0);
     pub const X1: Register = Register::new(1);
     pub const X2: Register = Register::new(2);
@@ -312,4 +380,39 @@ pub mod reg {
     pub const X29: Register = Register::new(29);
     pub const X30: Register = Register::new(30);
     pub const X31: Register = Register::new(31);
+
+    // RISC-V ABI register aliases
+    pub const ZERO: Register = X0;  // Hard-wired zero
+    pub const RA: Register = X1;    // Return address
+    pub const SP: Register = X2;    // Stack pointer
+    pub const GP: Register = X3;    // Global pointer
+    pub const TP: Register = X4;    // Thread pointer
+    pub const T0: Register = X5;    // Temporary register 0
+    pub const T1: Register = X6;    // Temporary register 1
+    pub const T2: Register = X7;    // Temporary register 2
+    pub const S0: Register = X8;    // Saved register 0 / Frame pointer
+    pub const FP: Register = X8;    // Frame pointer (alias for s0)
+    pub const S1: Register = X9;    // Saved register 1
+    pub const A0: Register = X10;   // Function argument 0 / Return value 0
+    pub const A1: Register = X11;   // Function argument 1 / Return value 1
+    pub const A2: Register = X12;   // Function argument 2
+    pub const A3: Register = X13;   // Function argument 3
+    pub const A4: Register = X14;   // Function argument 4
+    pub const A5: Register = X15;   // Function argument 5
+    pub const A6: Register = X16;   // Function argument 6
+    pub const A7: Register = X17;   // Function argument 7
+    pub const S2: Register = X18;   // Saved register 2
+    pub const S3: Register = X19;   // Saved register 3
+    pub const S4: Register = X20;   // Saved register 4
+    pub const S5: Register = X21;   // Saved register 5
+    pub const S6: Register = X22;   // Saved register 6
+    pub const S7: Register = X23;   // Saved register 7
+    pub const S8: Register = X24;   // Saved register 8
+    pub const S9: Register = X25;   // Saved register 9
+    pub const S10: Register = X26;  // Saved register 10
+    pub const S11: Register = X27;  // Saved register 11
+    pub const T3: Register = X28;   // Temporary register 3
+    pub const T4: Register = X29;   // Temporary register 4
+    pub const T5: Register = X30;   // Temporary register 5
+    pub const T6: Register = X31;   // Temporary register 6
 }

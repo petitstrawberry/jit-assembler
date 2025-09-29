@@ -13,13 +13,30 @@ homepage = "https://github.com/petitstrawberry/jit-assembler"
 readme = "README.md"
 
 [dependencies]
+jit-allocator2 = { version = "0.2", optional = true }
+hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"]}
 
 [features]
-default = ["std", "riscv"]
-std = []
-riscv = []
+default = ["std", "riscv64", "aarch64"]
+std = ["jit-allocator2"]
+riscv64 = []
 x86_64 = []
-arm64 = []
+aarch64 = []
+register-tracking = ["hashbrown"]
 
 [dev-dependencies]
+tempfile = "3.0"
 # For tests that might need std features
+
+# Examples that require std feature for JIT execution
+[[example]]
+name = "jit_execution"
+required-features = ["std"]
+
+[[example]]
+name = "jit_calculator"
+required-features = ["std"]
+
+[[example]]
+name = "register_tracking_demo"
+required-features = ["register-tracking"]

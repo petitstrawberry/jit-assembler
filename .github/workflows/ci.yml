@@ -1,0 +1,194 @@
+name: Multi-Architecture CI
+
+on:
+  push:
+    branches: [ ”main", "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  # X86-64 tests
+  test-x86:
+    runs-on: ubuntu-latest
+    name: Test on x86-64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Dockerfile と関連ファイルのハッシュを計算
+    - name: Generate Docker cache key
+      id: docker-cache-key
+      run: echo "key=docker-cache-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Docker キャッシュを復元
+    - name: Cache Docker image
+      id: docker-cache
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image
+        key: ${{ steps.docker-cache-key.outputs.key }}
+
+    # キャッシュがない場合のみビルド
+    - name: Build the Docker image
+      if: steps.docker-cache.outputs.cache-hit != 'true'
+      run: |
+        docker build . --file Dockerfile --tag jit-assembler-dev
+        docker save jit-assembler-dev > /tmp/docker-image
+
+    # キャッシュがある場合はロード
+    - name: Load cached Docker image
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image
+
+    - name: Build JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo build
+
+    - name: Test JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test
+      timeout-minutes: 5
+
+    - name: Test Examples (interpretation mode)
+      run: |
+        docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev bash -c "
+          echo 'Testing JIT Calculator example compilation...' &&
+          cargo build --example jit_calculator &&
+          echo 'Example compilation successful!'
+        "
+      timeout-minutes: 3
+
+  # RISC-V64 tests
+  test-riscv64:
+    runs-on: ubuntu-latest
+    name: Test on RISC-V64
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    # Set up QEMU for RISC-V64 emulation
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: riscv64
+        
+    # Set up Docker Buildx for multi-platform builds
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Generate Docker cache key for RISC-V64
+    - name: Generate RISC-V64 Docker cache key
+      id: docker-cache-key-riscv64
+      run: echo "key=docker-cache-riscv64-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Cache Docker image for RISC-V64
+    - name: Cache RISC-V64 Docker image
+      id: docker-cache-riscv64
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image-riscv64
+        key: ${{ steps.docker-cache-key-riscv64.outputs.key }}
+
+    # Build RISC-V64 Docker image (only if not cached)
+    - name: Build RISC-V64 Docker image
+      if: steps.docker-cache-riscv64.outputs.cache-hit != 'true'
+      run: |
+        docker buildx build \
+          --platform linux/riscv64 \
+          --file Dockerfile \
+          --tag jit-assembler-riscv64 \
+          --load \
+          .
+        docker save jit-assembler-riscv64 > /tmp/docker-image-riscv64
+
+    # Load cached RISC-V64 Docker image
+    - name: Load cached RISC-V64 Docker image
+      if: steps.docker-cache-riscv64.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image-riscv64
+
+    # Run tests on RISC-V64
+    - name: Test JIT Assembler on RISC-V64
+      run: |
+        docker run --rm \
+          --platform linux/riscv64 \
+          -v $PWD:/workspaces/jit-assembler \
+          jit-assembler-riscv64 \
+          bash -c "echo 'Architecture: \$(uname -m)' && cargo build --verbose && cargo test --verbose"
+      timeout-minutes: 20
+
+    # Run example tests on RISC-V64 (this is where JIT actually executes!)
+    - name: Test Examples on RISC-V64 (JIT execution)
+      run: |
+        docker run --rm \
+          --platform linux/riscv64 \
+          -v $PWD:/workspaces/jit-assembler \
+          jit-assembler-riscv64 \
+          bash -c "
+            echo 'Testing JIT Calculator examples on RISC-V64...' &&
+            echo 'Architecture: \$(uname -m)' &&
+            
+            echo 'Building examples...' &&
+            cargo build --example jit_calculator --verbose &&
+            
+            echo 'Running RISC-V64 integration tests...' &&
+            cargo test --example jit_calculator --verbose &&
+            
+            echo 'Testing JIT Calculator with sample expressions...' &&
+            echo '42' | timeout 10 cargo run --example jit_calculator &&
+            
+            echo 'Testing JIT Calculator with machine code display...' &&
+            echo '7 * 6' | timeout 10 cargo run --example jit_calculator -- --show-machine-code &&
+            
+            echo 'All RISC-V64 example tests completed successfully!'
+          "
+      timeout-minutes: 15
+
+  # AArch64 tests
+  test-aarch64:
+    runs-on: ubuntu-24.04-arm
+    name: Test on AArch64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Dockerfile と関連ファイルのハッシュを計算
+    - name: Generate Docker cache key
+      id: docker-cache-key
+      run: echo "key=docker-cache-aarch64-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Docker キャッシュを復元
+    - name: Cache Docker image
+      id: docker-cache
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image-aarch64
+        key: ${{ steps.docker-cache-key.outputs.key }}
+
+    # キャッシュがない場合のみビルド
+    - name: Build the Docker image
+      if: steps.docker-cache.outputs.cache-hit != 'true'
+      run: |
+        docker build . --file Dockerfile --tag jit-assembler-dev
+        docker save jit-assembler-dev > /tmp/docker-image-aarch64
+
+    # キャッシュがある場合はロード
+    - name: Load cached Docker image
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image-aarch64
+
+    - name: Build JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo build --features aarch64
+
+    - name: Test JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test --features aarch64
+      timeout-minutes: 5
+
+    - name: Test Examples (JIT execution on AArch64)
+      run: |
+        docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev bash -c "
+          echo 'Testing JIT Calculator example compilation and execution on AArch64...' &&
+          echo 'Architecture: \$(uname -m)' &&
+          cargo build --example jit_calculator --features aarch64 &&
+          cargo test --example jit_calculator --features aarch64 &&
+          echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64 &&
+          echo 'AArch64 example tests completed successfully!'
+        "
+      timeout-minutes: 10
