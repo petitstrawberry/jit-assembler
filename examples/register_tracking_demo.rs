@@ -1,4 +1,4 @@
-use jit_assembler::riscv::{Riscv64InstructionBuilder, reg};
+use jit_assembler::riscv64::{Riscv64InstructionBuilder, reg};
 use jit_assembler::common::InstructionBuilder;
 
 #[cfg(feature = "register-tracking")]

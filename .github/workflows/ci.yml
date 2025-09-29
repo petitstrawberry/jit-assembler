@@ -140,3 +140,55 @@ jobs:
             echo 'All RISC-V64 example tests completed successfully!'
           "
       timeout-minutes: 15
+
+  # AArch64 tests
+  test-aarch64:
+    runs-on: ubuntu-24.04-arm
+    name: Test on AArch64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Dockerfile と関連ファイルのハッシュを計算
+    - name: Generate Docker cache key
+      id: docker-cache-key
+      run: echo "key=docker-cache-aarch64-${{ hashFiles('Dockerfile') }}" >> $GITHUB_OUTPUT
+
+    # Docker キャッシュを復元
+    - name: Cache Docker image
+      id: docker-cache
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-image-aarch64
+        key: ${{ steps.docker-cache-key.outputs.key }}
+
+    # キャッシュがない場合のみビルド
+    - name: Build the Docker image
+      if: steps.docker-cache.outputs.cache-hit != 'true'
+      run: |
+        docker build . --file Dockerfile --tag jit-assembler-dev
+        docker save jit-assembler-dev > /tmp/docker-image-aarch64
+
+    # キャッシュがある場合はロード
+    - name: Load cached Docker image
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      run: docker load < /tmp/docker-image-aarch64
+
+    - name: Build JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo build --features aarch64
+
+    - name: Test JIT Assembler
+      run: docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev cargo test --features aarch64
+      timeout-minutes: 5
+
+    - name: Test Examples (JIT execution on AArch64)
+      run: |
+        docker run -v $PWD:/workspaces/jit-assembler jit-assembler-dev bash -c "
+          echo 'Testing JIT Calculator example compilation and execution on AArch64...' &&
+          echo 'Architecture: \$(uname -m)' &&
+          cargo build --example jit_calculator --features aarch64 &&
+          cargo test --example jit_calculator --features aarch64 &&
+          echo '42' | timeout 10 cargo run --example jit_calculator --features aarch64 &&
+          echo 'AArch64 example tests completed successfully!'
+        "
+      timeout-minutes: 10

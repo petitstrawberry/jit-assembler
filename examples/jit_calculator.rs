@@ -2,23 +2,30 @@
 //! 
 //! This example demonstrates a sophisticated JIT-compiled calculator that uses
 //! an Abstract Syntax Tree (AST) to represent mathematical expressions.
-//! The calculator compiles expressions to native RISC-V machine code using
-//! the M extension for arithmetic operations.
+//! The calculator compiles expressions to native machine code using
+//! either RISC-V or AArch64 depending on the target architecture.
 //! 
 //! Features:
 //! - AST-based expression parsing and evaluation
 //! - Support for parentheses and operator precedence
-//! - JIT compilation to RISC-V machine code
+//! - JIT compilation to RISC-V or AArch64 machine code
 //! - Optimized code generation for complex expressions
 //! 
 //! Supported operations: +, -, *, /, % (remainder), and parentheses
 //! 
-//! Note: This example works on RISC-V hosts or in emulation.
+//! Note: This example works on RISC-V or AArch64 hosts or in emulation.
 //! On other architectures, the functions will be created successfully
 //! but calling them will likely crash.
 
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+// Architecture-specific imports
+#[cfg(target_arch = "riscv64")]
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
+
+#[cfg(target_arch = "aarch64")]
+use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
+
 use jit_assembler::common::InstructionBuilder;
+
 use std::fmt;
 use std::env;
 
@@ -254,31 +261,70 @@ impl Parser {
     }
 }
 
-/// JIT compiler that converts AST to RISC-V machine code
+/// JIT compiler that converts AST to machine code
+/// Unified implementation that works across supported architectures
 pub struct JitCompiler {
+    #[cfg(target_arch = "riscv64")]
     builder: Riscv64InstructionBuilder,
-    register_stack: Vec<jit_assembler::riscv::Register>,
+    #[cfg(target_arch = "riscv64")]
+    register_stack: Vec<jit_assembler::riscv64::Register>,
+
+    #[cfg(target_arch = "aarch64")]
+    builder: Aarch64InstructionBuilder,
+    #[cfg(target_arch = "aarch64")]
+    register_stack: Vec<jit_assembler::aarch64::Register>,
+
     next_temp_reg: usize,
 }
 
 impl JitCompiler {
-    /// Available temporary registers for computation
-    /// Using only T0-T6 (caller-saved temporaries) - safe to use without preservation
-    /// Avoiding:
-    /// - A0: function return value
-    /// - RA: return address  
-    /// - SP: stack pointer
-    /// - S0-S11: callee-saved (would need to preserve)
-    const TEMP_REGISTERS: &'static [jit_assembler::riscv::Register] = &[
+    /// Available temporary registers for computation (RISC-V)
+    #[cfg(target_arch = "riscv64")]
+    const TEMP_REGISTERS_RISCV: &'static [jit_assembler::riscv64::Register] = &[
         reg::T0, reg::T1, reg::T2, reg::T3, reg::T4, reg::T5, reg::T6,
     ];
 
-    /// Allocate a temporary register
-    fn alloc_register(&mut self) -> Result<jit_assembler::riscv::Register, String> {
-        if self.next_temp_reg >= Self::TEMP_REGISTERS.len() {
+    /// Available temporary registers for computation (AArch64)
+    #[cfg(target_arch = "aarch64")]
+    const TEMP_REGISTERS_AARCH64: &'static [jit_assembler::aarch64::Register] = &[
+        reg::X9, reg::X10, reg::X11, reg::X12, reg::X13, reg::X14, reg::X15,
+    ];
+
+    pub fn new() -> Self {
+        Self {
+            #[cfg(target_arch = "riscv64")]
+            builder: Riscv64InstructionBuilder::new(),
+            #[cfg(target_arch = "riscv64")]
+            register_stack: Vec::new(),
+
+            #[cfg(target_arch = "aarch64")]
+            builder: Aarch64InstructionBuilder::new(),
+            #[cfg(target_arch = "aarch64")]
+            register_stack: Vec::new(),
+
+            next_temp_reg: 0,
+        }
+    }
+
+    /// Allocate a temporary register (architecture-agnostic interface)
+    #[cfg(target_arch = "riscv64")]
+    fn alloc_register(&mut self) -> Result<jit_assembler::riscv64::Register, String> {
+        if self.next_temp_reg >= Self::TEMP_REGISTERS_RISCV.len() {
             return Err("Out of temporary registers".to_string());
         }
-        let reg = Self::TEMP_REGISTERS[self.next_temp_reg];
+        let reg = Self::TEMP_REGISTERS_RISCV[self.next_temp_reg];
+        self.next_temp_reg += 1;
+        self.register_stack.push(reg);
+        Ok(reg)
+    }
+
+    /// Allocate a temporary register (architecture-agnostic interface)
+    #[cfg(target_arch = "aarch64")]
+    fn alloc_register(&mut self) -> Result<jit_assembler::aarch64::Register, String> {
+        if self.next_temp_reg >= Self::TEMP_REGISTERS_AARCH64.len() {
+            return Err("Out of temporary registers".to_string());
+        }
+        let reg = Self::TEMP_REGISTERS_AARCH64[self.next_temp_reg];
         self.next_temp_reg += 1;
         self.register_stack.push(reg);
         Ok(reg)
@@ -286,64 +332,108 @@ impl JitCompiler {
 
     /// Free the last allocated register
     fn free_register(&mut self) -> Result<(), String> {
-        if self.register_stack.is_empty() {
-            return Err("No registers to free".to_string());
+        #[cfg(target_arch = "riscv64")]
+        {
+            if self.register_stack.is_empty() {
+                return Err("No registers to free".to_string());
+            }
+            self.register_stack.pop();
         }
-        self.register_stack.pop();
+        
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.register_stack.is_empty() {
+                return Err("No registers to free".to_string());
+            }
+            self.register_stack.pop();
+        }
+        
         self.next_temp_reg = self.next_temp_reg.saturating_sub(1);
         Ok(())
     }
-}
-
-impl JitCompiler {
-    pub fn new() -> Self {
-        Self {
-            builder: Riscv64InstructionBuilder::new(),
-            register_stack: Vec::new(),
-            next_temp_reg: 0,
-        }
-    }
 
     /// Compile an AST to a JIT function
-    /// The result is stored in register A0
+    /// The result is stored in the appropriate return register for each architecture
     pub fn compile_expression(&mut self, ast: &AstNode, config: &CalculatorConfig) -> Result<Box<dyn Fn() -> u64>, Box<dyn std::error::Error>> {
-        // Generate code that computes the expression result in A0
-        self.compile_node(ast, reg::A0)?;
-        self.builder.ret();
+        // Generate code that computes the expression result in the return register
+        #[cfg(target_arch = "riscv64")]
+        {
+            self.compile_node(ast, reg::A0)?;
+            self.builder.ret();
+        }
+        
+        #[cfg(target_arch = "aarch64")]
+        {
+            self.compile_node(ast, reg::X0)?;
+            self.builder.ret();
+        }
+        
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+        {
+            return Err("JIT compilation not supported on this architecture".into());
+        }
 
         // Show machine code if requested
         if config.show_machine_code {
             self.show_generated_code();
         }
 
-        let jit_func = unsafe {
-            self.builder.function::<fn() -> u64>()?
-        };
-
-        Ok(Box::new(move || jit_func.call()))
+        #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+        {
+            let jit_func = unsafe {
+                self.builder.function::<fn() -> u64>()?
+            };
+            Ok(Box::new(move || jit_func.call()))
+        }
+        
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+        {
+            // This will never be reached due to the early return above, but needed for type consistency
+            unreachable!()
+        }
     }
 
     /// Display the generated machine code
     pub fn show_generated_code(&self) {
-        let instructions = self.builder.instructions();
-        let bytes = instructions.to_bytes();
-        
-        println!("🤖 Generated Machine Code:");
-        println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
-        
-        for (i, instr) in instructions.iter().enumerate() {
-            let instr_bytes = instr.bytes();
-            println!("   [{:2}]: {:02X?} ({})", 
-                     i + 1, 
-                     instr_bytes,
-                     if instr.is_compressed() { "16-bit" } else { "32-bit" });
+        #[cfg(target_arch = "riscv64")]
+        {
+            let instructions = self.builder.instructions();
+            let bytes = instructions.to_bytes();
+            
+            println!("🤖 Generated Machine Code:");
+            println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
+            
+            for (i, instr) in instructions.iter().enumerate() {
+                let instr_bytes = instr.bytes();
+                println!("   [{:2}]: {:02X?} ({})", 
+                         i + 1, 
+                         instr_bytes,
+                         if instr.is_compressed() { "16-bit" } else { "32-bit" });
+            }
+            
+            println!("   Raw bytes: {:02X?}", bytes);
         }
         
-        println!("   Raw bytes: {:02X?}", bytes);
+        #[cfg(target_arch = "aarch64")]
+        {
+            let instructions = self.builder.instructions();
+            let bytes = instructions.to_bytes();
+            
+            println!("🤖 Generated Machine Code:");
+            println!("   Instructions: {}, Total bytes: {}", instructions.len(), bytes.len());
+            
+            for (i, instr) in instructions.iter().enumerate() {
+                let instr_bytes = instr.bytes();
+                println!("   [{:2}]: {:02X?} (32-bit)", i + 1, instr_bytes);
+            }
+            
+            println!("   Raw bytes: {:02X?}", bytes);
+        }
     }
 
-    /// Compile an AST node, storing the result in the specified register
-    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::riscv::Register) -> Result<(), String> {
+    /// Compile an AST node, storing the result in the specified register (RISC-V)
+    #[cfg(target_arch = "riscv64")]
+    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::riscv64::Register) -> Result<(), String> {
         match node {
             AstNode::Number(value) => {
                 // Load immediate value into result register
@@ -404,6 +494,62 @@ impl JitCompiler {
             }
         }
     }
+
+    /// Compile an AST node, storing the result in the specified register (AArch64)
+    #[cfg(target_arch = "aarch64")]
+    fn compile_node(&mut self, node: &AstNode, result_reg: jit_assembler::aarch64::Register) -> Result<(), String> {
+        match node {
+            AstNode::Number(value) => {
+                // Load immediate value into result register
+                self.builder.mov_imm(result_reg, *value);
+                Ok(())
+            }
+            AstNode::BinaryOp { left, op, right } => {
+                // Use result_reg for left operand to save registers
+                self.compile_node(left, result_reg)?;
+                
+                // Only allocate one temp register for right operand
+                let right_reg = self.alloc_register()?;
+                self.compile_node(right, right_reg)?;
+
+                // Perform operation: result_reg = result_reg op right_reg
+                match op {
+                    BinaryOperator::Add => {
+                        self.builder.add(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Subtract => {
+                        self.builder.sub(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Multiply => {
+                        self.builder.mul(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Divide => {
+                        self.builder.udiv(result_reg, result_reg, right_reg);
+                    }
+                    BinaryOperator::Remainder => {
+                        // Manual remainder: result = left % right
+                        // Use X17 as temporary register (caller-saved)
+                        #[cfg(target_arch = "aarch64")]
+                        {
+                            self.builder.udiv(reg::X17, result_reg, right_reg);  // X17 = left / right
+                            self.builder.msub(result_reg, reg::X17, right_reg, result_reg);  // result = left - (X17 * right)
+                        }
+                        #[cfg(target_arch = "riscv64")]
+                        {
+                            // RISC-V has REM instruction, but for consistency we could implement it manually too
+                            // For now, this path should not be reached in RISC-V builds
+                            unimplemented!("Remainder operation not implemented for RISC-V in this example");
+                        }
+                    }
+                }
+
+                // Free the temporary register  
+                self.free_register()?; // right_reg
+                
+                Ok(())
+            }
+        }
+    }
 }
 
 /// High-level calculator interface
@@ -420,19 +566,21 @@ impl JitCalculator {
         
         println!("🌳 Generated AST: {}", ast);
         
-        // Compile AST to JIT function
-        println!("🔧 Compiling to RISC-V machine code...");
-        let mut compiler = JitCompiler::new();
-        let jit_function = compiler.compile_expression(&ast, config)?;
-        
-        // Execute JIT function
-        if cfg!(target_arch = "riscv64") {
+        // Compile AST to JIT function or interpret
+        #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+        {
+            println!("🔧 Compiling to native machine code...");
+            let mut compiler = JitCompiler::new();
+            let jit_function = compiler.compile_expression(&ast, config)?;
+            
             let result = jit_function();
             println!("✅ JIT execution result: {}", result);
             Ok(result)
-        } else {
-            // On non-RISC-V platforms, fall back to AST interpretation
-            println!("⚠️  Not on RISC-V platform, using AST interpreter");
+        }
+        
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+        {
+            println!("⚠️  Not on RISC-V or AArch64 platform, using AST interpreter");
             let result = Self::interpret_ast(&ast)?;
             println!("✅ Interpreted result: {}", result);
             Ok(result)
@@ -520,8 +668,9 @@ impl JitCalculator {
 }
 
 /// Demonstrate JIT compilation by showing the generated machine code
+#[cfg(target_arch = "riscv64")]
 fn demonstrate_jit_compilation() {
-    println!("Generating machine code for multiplication (7 * 6)...");
+    println!("Generating RISC-V machine code for multiplication (7 * 6)...");
     
     // Create a multiply function and show its bytecode
     let mut builder = Riscv64InstructionBuilder::new();
@@ -542,6 +691,38 @@ fn demonstrate_jit_compilation() {
     }
     
     println!("📋 Complete bytecode: {:02X?}", bytes);
+    println!();
+}
+
+/// Demonstrate JIT compilation by showing the generated machine code
+#[cfg(target_arch = "aarch64")]
+fn demonstrate_jit_compilation() {
+    println!("Generating AArch64 machine code for multiplication (7 * 6)...");
+    
+    // Create a multiply function and show its bytecode
+    let mut builder = Aarch64InstructionBuilder::new();
+    builder.mul(reg::X0, reg::X0, reg::X1); // X0 = X0 * X1
+    builder.ret(); // Return
+    
+    let instructions = builder.instructions();
+    let bytes = instructions.to_bytes();
+    
+    println!("📦 Generated {} instructions, {} bytes total:", instructions.len(), bytes.len());
+    
+    for (i, instr) in instructions.iter().enumerate() {
+        let instr_bytes = instr.bytes();
+        println!("  Instruction {}: {:02X?} (32-bit)", i + 1, instr_bytes);
+    }
+    
+    println!("📋 Complete bytecode: {:02X?}", bytes);
+    println!();
+}
+
+/// Demonstrate JIT compilation by showing the generated machine code (fallback for unsupported architectures)
+#[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+fn demonstrate_jit_compilation() {
+    println!("JIT compilation not available for this architecture");
+    println!("Supported architectures: RISC-V64, AArch64");
     println!();
 }
 
@@ -629,19 +810,19 @@ fn print_help() {
     println!("    cargo run --example jit_calculator -m");
 }
 
-/// RISC-V64 Integration Tests for JIT Calculator
+/// RISC-V64 and AArch64 Integration Tests for JIT Calculator
 /// 
-/// This module contains tests that only run on RISC-V64 platforms
+/// This module contains tests that only run on RISC-V64 or AArch64 platforms
 /// to verify that the JIT calculator works correctly with actual execution.
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Test basic arithmetic operations on RISC-V64
+    /// Test basic arithmetic operations
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_basic_arithmetic() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_basic_arithmetic() {
         let config = CalculatorConfig::default();
         
         // Test addition
@@ -665,10 +846,10 @@ mod tests {
         assert_eq!(result, 2);
     }
 
-    /// Test complex expressions with operator precedence on RISC-V64
+    /// Test complex expressions with operator precedence on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_complex_expressions() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_complex_expressions() {
         let config = CalculatorConfig::default();
         
         // Test operator precedence
@@ -692,10 +873,10 @@ mod tests {
         assert_eq!(result, 26);
     }
 
-    /// Test edge cases on RISC-V64
+    /// Test edge cases on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_edge_cases() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_edge_cases() {
         let config = CalculatorConfig::default();
         
         // Test single number
@@ -715,10 +896,10 @@ mod tests {
         assert_eq!(result, 25); // (5 * 4) + 5 = 20 + 5 = 25
     }
 
-    /// Test register allocation with complex expressions on RISC-V64
+    /// Test register allocation with complex expressions on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_register_allocation() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_register_allocation() {
         let config = CalculatorConfig::default();
         
         // Test expressions that would stress register allocation (simplified)
@@ -736,10 +917,10 @@ mod tests {
         }
     }
 
-    /// Test M extension instructions specifically on RISC-V64
+    /// Test M extension instructions specifically on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_m_extension() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_m_extension() {
         let config = CalculatorConfig::default();
         
         // Test various multiplication cases
@@ -782,10 +963,10 @@ mod tests {
         }
     }
 
-    /// Benchmark-style test to ensure JIT compilation is working on RISC-V64
+    /// Benchmark-style test to ensure JIT compilation is working on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_jit_compilation_performance() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_jit_compilation_performance() {
         let config = CalculatorConfig::default();
         
         // Create the same calculation multiple times to ensure JIT is actually working
@@ -800,10 +981,10 @@ mod tests {
         }
     }
 
-    /// Test machine code generation output on RISC-V64
+    /// Test machine code generation output on RISC-V64 and AArch64
     #[test]
-    #[cfg(target_arch = "riscv64")]
-    fn test_riscv64_machine_code_generation() {
+    #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+    fn test_machine_code_generation() {
         let mut config = CalculatorConfig::default();
         config.show_machine_code = true;
         

@@ -187,7 +187,7 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     /// # Examples
     /// 
     /// ```rust,no_run
-    /// use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+    /// use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
     /// use jit_assembler::common::InstructionBuilder;
     /// 
     /// let add_func = unsafe {

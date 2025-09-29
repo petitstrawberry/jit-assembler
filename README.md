@@ -16,8 +16,8 @@ A multi-architecture JIT assembler library for runtime code generation that work
 ## Supported Architectures
 
 - **RISC-V 64-bit** (`riscv` feature, enabled by default)
+- **AArch64** (`aarch64` feature, enabled by default) - Basic arithmetic and logical operations
 - **x86-64** (`x86_64` feature) - Coming soon
-- **ARM64** (`arm64` feature) - Coming soon
 
 ## Usage
 
@@ -32,10 +32,10 @@ jit-assembler = "0.1"
 
 ```rust
 use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
-use jit_assembler::jit_asm;
+use jit_assembler::riscv64_asm;
 
 // Macro style (concise and assembly-like)
-let instructions = jit_asm! {
+let instructions = riscv64_asm! {
     csrrw(reg::RA, csr::MSTATUS, reg::SP);   // CSR read-write using aliases
     csrr(reg::T0, csr::MSTATUS);             // CSR read (alias)
     addi(reg::A0, reg::ZERO, 100);           // Add immediate using aliases
@@ -84,6 +84,10 @@ For `no_std` environments, disable the default features:
 ```toml
 [dependencies]
 jit-assembler = { version = "0.1", default-features = false, features = ["riscv"] }
+# Or for AArch64 only:
+# jit-assembler = { version = "0.1", default-features = false, features = ["aarch64"] }
+# Or for both architectures without std:
+# jit-assembler = { version = "0.1", default-features = false, features = ["riscv", "aarch64"] }
 ```
 
 ## Architecture Support
@@ -111,12 +115,35 @@ The RISC-V backend supports:
 - **Pseudo-instructions**: `ret`, `li`
 - **Register usage tracking**: Full tracking support for all instruction types (`register-tracking` feature)
 
+### AArch64
+
+The AArch64 backend supports:
+
+- **Basic arithmetic operations**:
+  - **Register operations**: `add`, `sub`, `mul`, `udiv`, `sdiv`
+  - **Immediate operations**: `addi`, `subi`
+  - **Multiply-subtract operations**: `msub` (multiply-subtract for implementing remainder)
+- **Logical operations**:
+  - **Register operations**: `and`, `or`, `xor` (EOR)
+  - **Move operations**: `mov`
+- **Control flow**:
+  - **Return**: `ret`, `ret_reg`
+- **Extended operations**:
+  - **Immediate moves**: `mov_imm` (for larger constants)
+  - **Shift operations**: `shl` (left shift using multiply)
+- **Register conventions**: Following AAPCS64 (ARM ABI)
+  - **Argument/return registers**: X0-X7
+  - **Caller-saved temporaries**: X8-X18
+  - **Callee-saved registers**: X19-X28
+  - **Special registers**: X29 (FP), X30 (LR), X31 (SP/XZR)
+- **Register usage tracking**: Full tracking support (`register-tracking` feature)
+- **JIT compilation**: Direct function compilation and execution
+
 ### Future Architectures
 
 Support for additional architectures is planned:
 
 - x86-64: Intel/AMD 64-bit instruction set
-- ARM64: AArch64 instruction set
 
 ## Examples
 
@@ -124,11 +151,11 @@ Support for additional architectures is planned:
 
 ```rust
 use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
-use jit_assembler::jit_asm;
+use jit_assembler::riscv64_asm;
 
 // Simple function generator with macro
 fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
-    let instructions = jit_asm! {
+    let instructions = riscv64_asm! {
         addi(reg::A0, reg::ZERO, a);       // Load first operand into a0
         addi(reg::A1, reg::ZERO, b);       // Load second operand into a1
         add(reg::A0, reg::A0, reg::A1);    // Add them, result in a0
@@ -153,12 +180,63 @@ fn generate_csr_routine() -> Vec<u8> {
 }
 ```
 
+### AArch64 Usage
+
+```rust
+use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
+use jit_assembler::aarch64_asm;
+
+// Macro style (concise and assembly-like)
+fn generate_aarch64_add_function_macro() -> Vec<u8> {
+    let instructions = aarch64_asm! {
+        add(reg::X0, reg::X0, reg::X1);  // Add first two arguments (X0 + X1 -> X0)
+        ret();                           // Return
+    };
+    instructions
+}
+
+// Builder pattern style
+fn generate_aarch64_add_function() -> Vec<u8> {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    builder
+        .add(reg::X0, reg::X0, reg::X1)  // Add first two arguments (X0 + X1 -> X0)
+        .ret();                          // Return
+    
+    builder.instructions().to_bytes()
+}
+
+// More complex AArch64 example with immediate values (macro style)
+fn generate_aarch64_calculation_macro() -> Vec<u8> {
+    aarch64_asm! {
+        mov_imm(reg::X1, 42);            // Load immediate 42 into X1
+        mul(reg::X0, reg::X0, reg::X1);  // Multiply X0 by 42
+        addi(reg::X0, reg::X0, 100);     // Add 100 to result
+        ret();                           // Return
+    }
+}
+
+// More complex AArch64 example with immediate values (builder style)
+fn generate_aarch64_calculation() -> Vec<u8> {
+    let mut builder = Aarch64InstructionBuilder::new();
+    
+    builder
+        .mov_imm(reg::X1, 42)            // Load immediate 42 into X1
+        .mul(reg::X0, reg::X0, reg::X1)  // Multiply X0 by 42
+        .addi(reg::X0, reg::X0, 100)     // Add 100 to result
+        .ret();                          // Return
+    
+    builder.instructions().to_bytes()
+}
+```
+
 ### JIT Execution (std-only)
 
 Create and execute functions directly at runtime:
 
 ```rust
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 use jit_assembler::common::InstructionBuilder;
 
 // Create a JIT function that adds two numbers
@@ -209,7 +287,7 @@ jit-assembler = { version = "0.1", features = ["register-tracking"] }
 ### Usage Example
 
 ```rust
-use jit_assembler::riscv::{reg, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 use jit_assembler::common::InstructionBuilder;
 
 let mut builder = Riscv64InstructionBuilder::new();
