@@ -1622,7 +1622,7 @@ fn test_li_pseudo_instruction() {
         let opcode = val & 0x7F;
         let rd = (val >> 7) & 0x1F;
         let rs1 = (val >> 15) & 0x1F;
-        let imm = ((val as i32) >> 20);
+        let imm = (val as i32) >> 20;
         println!("    opcode=0x{:02x}, rd=x{}, rs1=x{}, imm={}", opcode, rd, rs1, imm);
     }
     
