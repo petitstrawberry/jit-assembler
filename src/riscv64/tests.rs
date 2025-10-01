@@ -1646,7 +1646,7 @@ fn test_li_pseudo_instruction() {
     let instructions = builder.instructions();
     // Large immediates should use lui followed by addi
     assert_eq!(instructions.len(), 2);
-    compare_instructions(&instructions, "lui x4, 0x12346\naddi x4, x4, 0x678\n");
+    compare_instructions(&instructions, "lui x4, 0x12345\naddi x4, x4, 0x678\n");
     
     // Test li with max 12-bit immediate (fits in single addi)
     let mut builder = Riscv64InstructionBuilder::new();
