@@ -571,7 +571,13 @@ impl Riscv64InstructionBuilder {
             self.lui(rd, upper as u32);
         }
         if lower != 0 || upper == 0 {
-            self.addi(rd, rd, lower as i16);
+            // Special case: when imm is 0, use x0 (zero register) as source
+            // to properly initialize rd to 0, rather than adding 0 to rd's current value
+            if imm == 0 {
+                self.addi(rd, super::reg::X0, 0);
+            } else {
+                self.addi(rd, rd, lower as i16);
+            }
         }
         self
     }

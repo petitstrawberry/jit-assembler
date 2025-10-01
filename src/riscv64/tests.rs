@@ -1605,6 +1605,62 @@ fn test_binary_correctness_multiline_macro_comparison() {
         "lui x1, 0x12345\naddi x2, x1, 100\nadd x3, x1, x2\nsub x4, x3, x1\nxor x5, x3, x4\n");
 }
 
+// Test li pseudo-instruction
+#[cfg(feature = "std")]
+#[test]
+fn test_li_pseudo_instruction() {
+    // Test li with imm=0 (should generate "addi rd, x0, 0", not "addi rd, rd, 0")
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X1, 0);
+    let instructions = builder.instructions();
+    
+    // Debug: print what was actually generated
+    println!("li(x1, 0) generated {} instructions:", instructions.len());
+    for (i, instr) in instructions.iter().enumerate() {
+        let val = instr.value() as u32;
+        println!("  Instruction {}: 0x{:08x}", i, val);
+        let opcode = val & 0x7F;
+        let rd = (val >> 7) & 0x1F;
+        let rs1 = (val >> 15) & 0x1F;
+        let imm = ((val as i32) >> 20);
+        println!("    opcode=0x{:02x}, rd=x{}, rs1=x{}, imm={}", opcode, rd, rs1, imm);
+    }
+    
+    compare_instruction(instructions[0], "addi x1, x0, 0\n");
+    
+    // Test li with small positive immediate
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X2, 100);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "addi x2, x0, 100\n");
+    
+    // Test li with small negative immediate
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X3, -50);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "addi x3, x0, -50\n");
+    
+    // Test li with large immediate requiring lui+addi
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X4, 0x12345678);
+    let instructions = builder.instructions();
+    // Large immediates should use lui followed by addi
+    assert_eq!(instructions.len(), 2);
+    compare_instructions(&instructions, "lui x4, 0x12346\naddi x4, x4, 0x678\n");
+    
+    // Test li with max 12-bit immediate (fits in single addi)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X5, 2047);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "addi x5, x0, 2047\n");
+    
+    // Test li with min 12-bit immediate (fits in single addi)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.li(reg::X6, -2048);
+    let instructions = builder.instructions();
+    compare_instruction(instructions[0], "addi x6, x0, -2048\n");
+}
+
 // JIT execution tests
 #[cfg(feature = "std")]
 #[test]
