@@ -1,6 +1,6 @@
 [package]
 name = "jit-assembler"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["petitstrawberry <petitstrawberry.dev@gmail.com>"]
 edition = "2021"
 description = "A multi-architecture JIT assembler library for runtime code generation"
