@@ -339,6 +339,90 @@ This information is invaluable for:
 - **Performance optimization**: Minimize unnecessary register saves/restores
 - **Code analysis**: Understand register pressure and usage patterns
 
+## Merging Instruction Collections
+
+When building complex functions, you may need to combine multiple instruction sequences in arbitrary order. For example, you might want to build the main function body first, then add prologue and epilogue code after determining which registers need to be saved.
+
+### Basic Merging
+
+```rust
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
+use jit_assembler::common::InstructionBuilder;
+
+// Build different parts separately
+let mut prologue = Riscv64InstructionBuilder::new();
+prologue
+    .addi(reg::SP, reg::SP, -16)
+    .sd(reg::SP, reg::RA, 8);
+
+let mut main_code = Riscv64InstructionBuilder::new();
+main_code
+    .add(reg::A0, reg::A1, reg::A2)
+    .mul(reg::A0, reg::A0, reg::A3);
+
+let mut epilogue = Riscv64InstructionBuilder::new();
+epilogue
+    .ld(reg::RA, reg::SP, 8)
+    .addi(reg::SP, reg::SP, 16)
+    .ret();
+
+// Combine them using + operator: prologue + main + epilogue
+let combined = prologue.instructions() + main_code.instructions() + epilogue.instructions();
+
+// Or use method chaining
+let mut combined = prologue.instructions();
+combined += main_code.instructions();
+combined += epilogue.instructions();
+
+// Convert to executable code
+let bytes = combined.to_bytes();
+```
+
+### Merging with Register Tracking
+
+When the `register-tracking` feature is enabled, you can merge instruction collections while preserving register usage information:
+
+```rust
+use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
+use jit_assembler::common::{InstructionBuilder, InstructionCollectionWithUsage};
+
+// Build code in separate builders
+let mut prologue = Riscv64InstructionBuilder::new();
+prologue.sd(reg::SP, reg::S0, -8);  // Save S0
+
+let mut main_code = Riscv64InstructionBuilder::new();
+main_code.add(reg::S0, reg::A0, reg::A1);  // Use S0
+
+let mut epilogue = Riscv64InstructionBuilder::new();
+epilogue.ld(reg::S0, reg::SP, -8);  // Restore S0
+
+// Create tracked collections
+let prologue_tracked = InstructionCollectionWithUsage::new(
+    prologue.instructions(),
+    prologue.register_usage().clone()
+);
+let main_tracked = InstructionCollectionWithUsage::new(
+    main_code.instructions(),
+    main_code.register_usage().clone()
+);
+let epilogue_tracked = InstructionCollectionWithUsage::new(
+    epilogue.instructions(),
+    epilogue.register_usage().clone()
+);
+
+// Merge with register usage tracking
+let combined = prologue_tracked + main_tracked + epilogue_tracked;
+
+// Access both instructions and register usage
+let instructions = combined.instructions();
+let usage = combined.register_usage();
+
+println!("Combined {} instructions", instructions.len());
+println!("Register usage: {}", usage);
+```
+
+See `examples/instruction_collection_merge.rs` for a complete working example.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
