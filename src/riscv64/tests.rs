@@ -1977,7 +1977,7 @@ mod register_tracking_tests {
 }
 
 #[test]
-fn test_all_new_m_mode_csr_addresses() {
+fn test_all_m_mode_csr_addresses() {
     // Machine Information Registers
     assert_eq!(csr::MVENDORID.value(), 0xf11);
     assert_eq!(csr::MARCHID.value(), 0xf12);
@@ -2056,10 +2056,10 @@ fn test_all_new_m_mode_csr_addresses() {
 }
 
 #[test]
-fn test_new_csr_usage() {
+fn test_m_mode_csr_usage() {
     let mut builder = Riscv64InstructionBuilder::new();
     
-    // Test a selection of new CSRs to verify they can be used
+    // Test a selection of M-mode CSRs to verify they can be used
     builder.csrr(reg::X1, csr::MVENDORID);
     builder.csrr(reg::X2, csr::MARCHID);
     builder.csrr(reg::X3, csr::MIMPID);
@@ -2088,8 +2088,8 @@ fn test_new_csr_usage() {
 
 #[cfg(feature = "std")]
 #[test]
-fn test_binary_correctness_new_m_mode_csrs() {
-    // Test all new M-mode CSRs with GNU assembler comparison
+fn test_binary_correctness_m_mode_csrs() {
+    // Test all M-mode CSRs with GNU assembler comparison
     // Using CSRRW x0, csr, x0 pattern as requested
     
     // Machine Information Registers
