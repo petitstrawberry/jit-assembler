@@ -318,19 +318,219 @@ pub mod m_funct7 {
 pub mod csr {
     use super::Csr;
     
-    // Machine-mode CSRs
+    // Machine Information Registers
+    pub const MVENDORID: Csr = Csr::new(0xf11);
+    pub const MARCHID: Csr = Csr::new(0xf12);
+    pub const MIMPID: Csr = Csr::new(0xf13);
+    pub const MHARTID: Csr = Csr::new(0xf14);
+    pub const MCONFIGPTR: Csr = Csr::new(0xf15);
+    
+    // Machine Trap Setup
     pub const MSTATUS: Csr = Csr::new(0x300);
     pub const MISA: Csr = Csr::new(0x301);
     pub const MEDELEG: Csr = Csr::new(0x302);
     pub const MIDELEG: Csr = Csr::new(0x303);
     pub const MIE: Csr = Csr::new(0x304);
     pub const MTVEC: Csr = Csr::new(0x305);
+    pub const MCOUNTEREN: Csr = Csr::new(0x306);
+    pub const MSTATUSH: Csr = Csr::new(0x310);
+    
+    // Machine Trap Handling
     pub const MSCRATCH: Csr = Csr::new(0x340);
     pub const MEPC: Csr = Csr::new(0x341);
     pub const MCAUSE: Csr = Csr::new(0x342);
     pub const MTVAL: Csr = Csr::new(0x343);
     pub const MIP: Csr = Csr::new(0x344);
-    pub const MHARTID: Csr = Csr::new(0xf14);
+    pub const MTINST: Csr = Csr::new(0x34a);
+    pub const MTVAL2: Csr = Csr::new(0x34b);
+    
+    // Machine Configuration
+    pub const MENVCFG: Csr = Csr::new(0x30a);
+    pub const MENVCFGH: Csr = Csr::new(0x31a);
+    pub const MSECCFG: Csr = Csr::new(0x747);
+    pub const MSECCFGH: Csr = Csr::new(0x757);
+    
+    // Machine Memory Protection - Configuration
+    pub const PMPCFG0: Csr = Csr::new(0x3a0);
+    pub const PMPCFG1: Csr = Csr::new(0x3a1);
+    pub const PMPCFG2: Csr = Csr::new(0x3a2);
+    pub const PMPCFG3: Csr = Csr::new(0x3a3);
+    pub const PMPCFG4: Csr = Csr::new(0x3a4);
+    pub const PMPCFG5: Csr = Csr::new(0x3a5);
+    pub const PMPCFG6: Csr = Csr::new(0x3a6);
+    pub const PMPCFG7: Csr = Csr::new(0x3a7);
+    pub const PMPCFG8: Csr = Csr::new(0x3a8);
+    pub const PMPCFG9: Csr = Csr::new(0x3a9);
+    pub const PMPCFG10: Csr = Csr::new(0x3aa);
+    pub const PMPCFG11: Csr = Csr::new(0x3ab);
+    pub const PMPCFG12: Csr = Csr::new(0x3ac);
+    pub const PMPCFG13: Csr = Csr::new(0x3ad);
+    pub const PMPCFG14: Csr = Csr::new(0x3ae);
+    pub const PMPCFG15: Csr = Csr::new(0x3af);
+    
+    // Machine Memory Protection - Address
+    pub const PMPADDR0: Csr = Csr::new(0x3b0);
+    pub const PMPADDR1: Csr = Csr::new(0x3b1);
+    pub const PMPADDR2: Csr = Csr::new(0x3b2);
+    pub const PMPADDR3: Csr = Csr::new(0x3b3);
+    pub const PMPADDR4: Csr = Csr::new(0x3b4);
+    pub const PMPADDR5: Csr = Csr::new(0x3b5);
+    pub const PMPADDR6: Csr = Csr::new(0x3b6);
+    pub const PMPADDR7: Csr = Csr::new(0x3b7);
+    pub const PMPADDR8: Csr = Csr::new(0x3b8);
+    pub const PMPADDR9: Csr = Csr::new(0x3b9);
+    pub const PMPADDR10: Csr = Csr::new(0x3ba);
+    pub const PMPADDR11: Csr = Csr::new(0x3bb);
+    pub const PMPADDR12: Csr = Csr::new(0x3bc);
+    pub const PMPADDR13: Csr = Csr::new(0x3bd);
+    pub const PMPADDR14: Csr = Csr::new(0x3be);
+    pub const PMPADDR15: Csr = Csr::new(0x3bf);
+    pub const PMPADDR16: Csr = Csr::new(0x3c0);
+    pub const PMPADDR17: Csr = Csr::new(0x3c1);
+    pub const PMPADDR18: Csr = Csr::new(0x3c2);
+    pub const PMPADDR19: Csr = Csr::new(0x3c3);
+    pub const PMPADDR20: Csr = Csr::new(0x3c4);
+    pub const PMPADDR21: Csr = Csr::new(0x3c5);
+    pub const PMPADDR22: Csr = Csr::new(0x3c6);
+    pub const PMPADDR23: Csr = Csr::new(0x3c7);
+    pub const PMPADDR24: Csr = Csr::new(0x3c8);
+    pub const PMPADDR25: Csr = Csr::new(0x3c9);
+    pub const PMPADDR26: Csr = Csr::new(0x3ca);
+    pub const PMPADDR27: Csr = Csr::new(0x3cb);
+    pub const PMPADDR28: Csr = Csr::new(0x3cc);
+    pub const PMPADDR29: Csr = Csr::new(0x3cd);
+    pub const PMPADDR30: Csr = Csr::new(0x3ce);
+    pub const PMPADDR31: Csr = Csr::new(0x3cf);
+    pub const PMPADDR32: Csr = Csr::new(0x3d0);
+    pub const PMPADDR33: Csr = Csr::new(0x3d1);
+    pub const PMPADDR34: Csr = Csr::new(0x3d2);
+    pub const PMPADDR35: Csr = Csr::new(0x3d3);
+    pub const PMPADDR36: Csr = Csr::new(0x3d4);
+    pub const PMPADDR37: Csr = Csr::new(0x3d5);
+    pub const PMPADDR38: Csr = Csr::new(0x3d6);
+    pub const PMPADDR39: Csr = Csr::new(0x3d7);
+    pub const PMPADDR40: Csr = Csr::new(0x3d8);
+    pub const PMPADDR41: Csr = Csr::new(0x3d9);
+    pub const PMPADDR42: Csr = Csr::new(0x3da);
+    pub const PMPADDR43: Csr = Csr::new(0x3db);
+    pub const PMPADDR44: Csr = Csr::new(0x3dc);
+    pub const PMPADDR45: Csr = Csr::new(0x3dd);
+    pub const PMPADDR46: Csr = Csr::new(0x3de);
+    pub const PMPADDR47: Csr = Csr::new(0x3df);
+    pub const PMPADDR48: Csr = Csr::new(0x3e0);
+    pub const PMPADDR49: Csr = Csr::new(0x3e1);
+    pub const PMPADDR50: Csr = Csr::new(0x3e2);
+    pub const PMPADDR51: Csr = Csr::new(0x3e3);
+    pub const PMPADDR52: Csr = Csr::new(0x3e4);
+    pub const PMPADDR53: Csr = Csr::new(0x3e5);
+    pub const PMPADDR54: Csr = Csr::new(0x3e6);
+    pub const PMPADDR55: Csr = Csr::new(0x3e7);
+    pub const PMPADDR56: Csr = Csr::new(0x3e8);
+    pub const PMPADDR57: Csr = Csr::new(0x3e9);
+    pub const PMPADDR58: Csr = Csr::new(0x3ea);
+    pub const PMPADDR59: Csr = Csr::new(0x3eb);
+    pub const PMPADDR60: Csr = Csr::new(0x3ec);
+    pub const PMPADDR61: Csr = Csr::new(0x3ed);
+    pub const PMPADDR62: Csr = Csr::new(0x3ee);
+    pub const PMPADDR63: Csr = Csr::new(0x3ef);
+    
+    // Machine Counter/Timers
+    pub const MCYCLE: Csr = Csr::new(0xb00);
+    pub const MINSTRET: Csr = Csr::new(0xb02);
+    pub const MHPMCOUNTER3: Csr = Csr::new(0xb03);
+    pub const MHPMCOUNTER4: Csr = Csr::new(0xb04);
+    pub const MHPMCOUNTER5: Csr = Csr::new(0xb05);
+    pub const MHPMCOUNTER6: Csr = Csr::new(0xb06);
+    pub const MHPMCOUNTER7: Csr = Csr::new(0xb07);
+    pub const MHPMCOUNTER8: Csr = Csr::new(0xb08);
+    pub const MHPMCOUNTER9: Csr = Csr::new(0xb09);
+    pub const MHPMCOUNTER10: Csr = Csr::new(0xb0a);
+    pub const MHPMCOUNTER11: Csr = Csr::new(0xb0b);
+    pub const MHPMCOUNTER12: Csr = Csr::new(0xb0c);
+    pub const MHPMCOUNTER13: Csr = Csr::new(0xb0d);
+    pub const MHPMCOUNTER14: Csr = Csr::new(0xb0e);
+    pub const MHPMCOUNTER15: Csr = Csr::new(0xb0f);
+    pub const MHPMCOUNTER16: Csr = Csr::new(0xb10);
+    pub const MHPMCOUNTER17: Csr = Csr::new(0xb11);
+    pub const MHPMCOUNTER18: Csr = Csr::new(0xb12);
+    pub const MHPMCOUNTER19: Csr = Csr::new(0xb13);
+    pub const MHPMCOUNTER20: Csr = Csr::new(0xb14);
+    pub const MHPMCOUNTER21: Csr = Csr::new(0xb15);
+    pub const MHPMCOUNTER22: Csr = Csr::new(0xb16);
+    pub const MHPMCOUNTER23: Csr = Csr::new(0xb17);
+    pub const MHPMCOUNTER24: Csr = Csr::new(0xb18);
+    pub const MHPMCOUNTER25: Csr = Csr::new(0xb19);
+    pub const MHPMCOUNTER26: Csr = Csr::new(0xb1a);
+    pub const MHPMCOUNTER27: Csr = Csr::new(0xb1b);
+    pub const MHPMCOUNTER28: Csr = Csr::new(0xb1c);
+    pub const MHPMCOUNTER29: Csr = Csr::new(0xb1d);
+    pub const MHPMCOUNTER30: Csr = Csr::new(0xb1e);
+    pub const MHPMCOUNTER31: Csr = Csr::new(0xb1f);
+    
+    // Machine Counter/Timers - High (for RV32)
+    pub const MCYCLEH: Csr = Csr::new(0xb80);
+    pub const MINSTRETH: Csr = Csr::new(0xb82);
+    pub const MHPMCOUNTER3H: Csr = Csr::new(0xb83);
+    pub const MHPMCOUNTER4H: Csr = Csr::new(0xb84);
+    pub const MHPMCOUNTER5H: Csr = Csr::new(0xb85);
+    pub const MHPMCOUNTER6H: Csr = Csr::new(0xb86);
+    pub const MHPMCOUNTER7H: Csr = Csr::new(0xb87);
+    pub const MHPMCOUNTER8H: Csr = Csr::new(0xb88);
+    pub const MHPMCOUNTER9H: Csr = Csr::new(0xb89);
+    pub const MHPMCOUNTER10H: Csr = Csr::new(0xb8a);
+    pub const MHPMCOUNTER11H: Csr = Csr::new(0xb8b);
+    pub const MHPMCOUNTER12H: Csr = Csr::new(0xb8c);
+    pub const MHPMCOUNTER13H: Csr = Csr::new(0xb8d);
+    pub const MHPMCOUNTER14H: Csr = Csr::new(0xb8e);
+    pub const MHPMCOUNTER15H: Csr = Csr::new(0xb8f);
+    pub const MHPMCOUNTER16H: Csr = Csr::new(0xb90);
+    pub const MHPMCOUNTER17H: Csr = Csr::new(0xb91);
+    pub const MHPMCOUNTER18H: Csr = Csr::new(0xb92);
+    pub const MHPMCOUNTER19H: Csr = Csr::new(0xb93);
+    pub const MHPMCOUNTER20H: Csr = Csr::new(0xb94);
+    pub const MHPMCOUNTER21H: Csr = Csr::new(0xb95);
+    pub const MHPMCOUNTER22H: Csr = Csr::new(0xb96);
+    pub const MHPMCOUNTER23H: Csr = Csr::new(0xb97);
+    pub const MHPMCOUNTER24H: Csr = Csr::new(0xb98);
+    pub const MHPMCOUNTER25H: Csr = Csr::new(0xb99);
+    pub const MHPMCOUNTER26H: Csr = Csr::new(0xb9a);
+    pub const MHPMCOUNTER27H: Csr = Csr::new(0xb9b);
+    pub const MHPMCOUNTER28H: Csr = Csr::new(0xb9c);
+    pub const MHPMCOUNTER29H: Csr = Csr::new(0xb9d);
+    pub const MHPMCOUNTER30H: Csr = Csr::new(0xb9e);
+    pub const MHPMCOUNTER31H: Csr = Csr::new(0xb9f);
+    
+    // Machine Counter Setup
+    pub const MCOUNTINHIBIT: Csr = Csr::new(0x320);
+    pub const MHPMEVENT3: Csr = Csr::new(0x323);
+    pub const MHPMEVENT4: Csr = Csr::new(0x324);
+    pub const MHPMEVENT5: Csr = Csr::new(0x325);
+    pub const MHPMEVENT6: Csr = Csr::new(0x326);
+    pub const MHPMEVENT7: Csr = Csr::new(0x327);
+    pub const MHPMEVENT8: Csr = Csr::new(0x328);
+    pub const MHPMEVENT9: Csr = Csr::new(0x329);
+    pub const MHPMEVENT10: Csr = Csr::new(0x32a);
+    pub const MHPMEVENT11: Csr = Csr::new(0x32b);
+    pub const MHPMEVENT12: Csr = Csr::new(0x32c);
+    pub const MHPMEVENT13: Csr = Csr::new(0x32d);
+    pub const MHPMEVENT14: Csr = Csr::new(0x32e);
+    pub const MHPMEVENT15: Csr = Csr::new(0x32f);
+    pub const MHPMEVENT16: Csr = Csr::new(0x330);
+    pub const MHPMEVENT17: Csr = Csr::new(0x331);
+    pub const MHPMEVENT18: Csr = Csr::new(0x332);
+    pub const MHPMEVENT19: Csr = Csr::new(0x333);
+    pub const MHPMEVENT20: Csr = Csr::new(0x334);
+    pub const MHPMEVENT21: Csr = Csr::new(0x335);
+    pub const MHPMEVENT22: Csr = Csr::new(0x336);
+    pub const MHPMEVENT23: Csr = Csr::new(0x337);
+    pub const MHPMEVENT24: Csr = Csr::new(0x338);
+    pub const MHPMEVENT25: Csr = Csr::new(0x339);
+    pub const MHPMEVENT26: Csr = Csr::new(0x33a);
+    pub const MHPMEVENT27: Csr = Csr::new(0x33b);
+    pub const MHPMEVENT28: Csr = Csr::new(0x33c);
+    pub const MHPMEVENT29: Csr = Csr::new(0x33d);
+    pub const MHPMEVENT30: Csr = Csr::new(0x33e);
+    pub const MHPMEVENT31: Csr = Csr::new(0x33f);
     
     // Supervisor-mode CSRs
     pub const SSTATUS: Csr = Csr::new(0x100);

@@ -1975,3 +1975,865 @@ mod register_tracking_tests {
         assert_eq!(t0_count, 1);
     }
 }
+
+#[test]
+fn test_all_m_mode_csr_addresses() {
+    // Machine Information Registers
+    assert_eq!(csr::MVENDORID.value(), 0xf11);
+    assert_eq!(csr::MARCHID.value(), 0xf12);
+    assert_eq!(csr::MIMPID.value(), 0xf13);
+    assert_eq!(csr::MHARTID.value(), 0xf14);
+    assert_eq!(csr::MCONFIGPTR.value(), 0xf15);
+    
+    // Machine Trap Setup
+    assert_eq!(csr::MSTATUS.value(), 0x300);
+    assert_eq!(csr::MISA.value(), 0x301);
+    assert_eq!(csr::MEDELEG.value(), 0x302);
+    assert_eq!(csr::MIDELEG.value(), 0x303);
+    assert_eq!(csr::MIE.value(), 0x304);
+    assert_eq!(csr::MTVEC.value(), 0x305);
+    assert_eq!(csr::MCOUNTEREN.value(), 0x306);
+    assert_eq!(csr::MSTATUSH.value(), 0x310);
+    
+    // Machine Trap Handling
+    assert_eq!(csr::MSCRATCH.value(), 0x340);
+    assert_eq!(csr::MEPC.value(), 0x341);
+    assert_eq!(csr::MCAUSE.value(), 0x342);
+    assert_eq!(csr::MTVAL.value(), 0x343);
+    assert_eq!(csr::MIP.value(), 0x344);
+    assert_eq!(csr::MTINST.value(), 0x34a);
+    assert_eq!(csr::MTVAL2.value(), 0x34b);
+    
+    // Machine Configuration
+    assert_eq!(csr::MENVCFG.value(), 0x30a);
+    assert_eq!(csr::MENVCFGH.value(), 0x31a);
+    assert_eq!(csr::MSECCFG.value(), 0x747);
+    assert_eq!(csr::MSECCFGH.value(), 0x757);
+    
+    // Machine Memory Protection - Configuration
+    assert_eq!(csr::PMPCFG0.value(), 0x3a0);
+    assert_eq!(csr::PMPCFG1.value(), 0x3a1);
+    assert_eq!(csr::PMPCFG2.value(), 0x3a2);
+    assert_eq!(csr::PMPCFG3.value(), 0x3a3);
+    assert_eq!(csr::PMPCFG4.value(), 0x3a4);
+    assert_eq!(csr::PMPCFG5.value(), 0x3a5);
+    assert_eq!(csr::PMPCFG6.value(), 0x3a6);
+    assert_eq!(csr::PMPCFG7.value(), 0x3a7);
+    assert_eq!(csr::PMPCFG8.value(), 0x3a8);
+    assert_eq!(csr::PMPCFG9.value(), 0x3a9);
+    assert_eq!(csr::PMPCFG10.value(), 0x3aa);
+    assert_eq!(csr::PMPCFG11.value(), 0x3ab);
+    assert_eq!(csr::PMPCFG12.value(), 0x3ac);
+    assert_eq!(csr::PMPCFG13.value(), 0x3ad);
+    assert_eq!(csr::PMPCFG14.value(), 0x3ae);
+    assert_eq!(csr::PMPCFG15.value(), 0x3af);
+    
+    // Machine Memory Protection - Address (sample checks)
+    assert_eq!(csr::PMPADDR0.value(), 0x3b0);
+    assert_eq!(csr::PMPADDR1.value(), 0x3b1);
+    assert_eq!(csr::PMPADDR15.value(), 0x3bf);
+    assert_eq!(csr::PMPADDR31.value(), 0x3cf);
+    assert_eq!(csr::PMPADDR63.value(), 0x3ef);
+    
+    // Machine Counter/Timers
+    assert_eq!(csr::MCYCLE.value(), 0xb00);
+    assert_eq!(csr::MINSTRET.value(), 0xb02);
+    assert_eq!(csr::MHPMCOUNTER3.value(), 0xb03);
+    assert_eq!(csr::MHPMCOUNTER4.value(), 0xb04);
+    assert_eq!(csr::MHPMCOUNTER31.value(), 0xb1f);
+    
+    // Machine Counter/Timers - High
+    assert_eq!(csr::MCYCLEH.value(), 0xb80);
+    assert_eq!(csr::MINSTRETH.value(), 0xb82);
+    assert_eq!(csr::MHPMCOUNTER3H.value(), 0xb83);
+    assert_eq!(csr::MHPMCOUNTER31H.value(), 0xb9f);
+    
+    // Machine Counter Setup
+    assert_eq!(csr::MCOUNTINHIBIT.value(), 0x320);
+    assert_eq!(csr::MHPMEVENT3.value(), 0x323);
+    assert_eq!(csr::MHPMEVENT4.value(), 0x324);
+    assert_eq!(csr::MHPMEVENT31.value(), 0x33f);
+}
+
+#[test]
+fn test_m_mode_csr_usage() {
+    let mut builder = Riscv64InstructionBuilder::new();
+    
+    // Test a selection of M-mode CSRs to verify they can be used
+    builder.csrr(reg::X1, csr::MVENDORID);
+    builder.csrr(reg::X2, csr::MARCHID);
+    builder.csrr(reg::X3, csr::MIMPID);
+    builder.csrr(reg::X4, csr::MCONFIGPTR);
+    builder.csrr(reg::X5, csr::MCOUNTEREN);
+    builder.csrr(reg::X6, csr::MTINST);
+    builder.csrr(reg::X7, csr::MTVAL2);
+    builder.csrr(reg::X8, csr::MENVCFG);
+    builder.csrr(reg::X9, csr::MSECCFG);
+    builder.csrr(reg::X10, csr::PMPCFG0);
+    builder.csrr(reg::X11, csr::PMPADDR0);
+    builder.csrr(reg::X12, csr::MCYCLE);
+    builder.csrr(reg::X13, csr::MINSTRET);
+    builder.csrr(reg::X14, csr::MHPMCOUNTER3);
+    builder.csrr(reg::X15, csr::MCOUNTINHIBIT);
+    builder.csrr(reg::X16, csr::MHPMEVENT3);
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 16);
+    
+    // Verify all instructions are properly encoded
+    for (i, instr) in instructions.iter().enumerate() {
+        assert!(instr.value() != 0, "Instruction {} should be non-zero", i);
+    }
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_binary_correctness_m_mode_csrs() {
+    // Test all M-mode CSRs with GNU assembler comparison
+    // Using CSRRW x0, csr, x0 pattern as requested
+    
+    // Machine Information Registers
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MVENDORID, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mvendorid, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MARCHID, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, marchid, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MIMPID, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mimpid, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MCONFIGPTR, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mconfigptr, x0\n");
+    
+    // Machine Trap Setup
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MCOUNTEREN, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mcounteren, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MSTATUSH, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mstatush, x0\n");
+    
+    // Machine Trap Handling
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MTINST, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mtinst, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MTVAL2, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mtval2, x0\n");
+    
+    // Machine Configuration
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MENVCFG, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, menvcfg, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MENVCFGH, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, menvcfgh, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MSECCFG, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mseccfg, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MSECCFGH, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mseccfgh, x0\n");
+    
+    // Physical Memory Protection - Configuration
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG0, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg0, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG1, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg1, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG2, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg2, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG3, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg3, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG4, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg4, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG5, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg5, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG6, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg6, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG7, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg7, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG8, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg8, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG9, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg9, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG10, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg10, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG11, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg11, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG12, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg12, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG13, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg13, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG14, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg14, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPCFG15, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpcfg15, x0\n");
+    
+    // Physical Memory Protection - Address (test all 64)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR0, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr0, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR1, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr1, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR2, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr2, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR3, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr3, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR4, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr4, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR5, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr5, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR6, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr6, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR7, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr7, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR8, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr8, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR9, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr9, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR10, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr10, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR11, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr11, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR12, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr12, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR13, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr13, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR14, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr14, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR15, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr15, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR16, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr16, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR17, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr17, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR18, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr18, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR19, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr19, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR20, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr20, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR21, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr21, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR22, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr22, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR23, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr23, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR24, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr24, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR25, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr25, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR26, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr26, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR27, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr27, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR28, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr28, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR29, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr29, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR30, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr30, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR31, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr31, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR32, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr32, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR33, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr33, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR34, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr34, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR35, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr35, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR36, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr36, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR37, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr37, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR38, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr38, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR39, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr39, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR40, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr40, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR41, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr41, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR42, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr42, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR43, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr43, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR44, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr44, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR45, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr45, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR46, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr46, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR47, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr47, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR48, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr48, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR49, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr49, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR50, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr50, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR51, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr51, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR52, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr52, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR53, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr53, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR54, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr54, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR55, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr55, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR56, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr56, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR57, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr57, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR58, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr58, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR59, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr59, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR60, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr60, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR61, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr61, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR62, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr62, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::PMPADDR63, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, pmpaddr63, x0\n");
+    
+    // Machine Counter/Timers
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MCYCLE, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mcycle, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MINSTRET, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, minstret, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER3, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter3, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER4, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter4, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER5, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter5, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER6, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter6, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER7, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter7, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER8, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter8, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER9, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter9, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER10, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter10, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER11, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter11, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER12, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter12, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER13, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter13, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER14, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter14, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER15, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter15, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER16, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter16, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER17, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter17, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER18, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter18, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER19, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter19, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER20, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter20, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER21, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter21, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER22, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter22, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER23, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter23, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER24, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter24, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER25, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter25, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER26, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter26, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER27, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter27, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER28, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter28, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER29, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter29, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER30, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter30, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER31, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter31, x0\n");
+    
+    // Machine Counter/Timers - High (for RV32)
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MCYCLEH, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mcycleh, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MINSTRETH, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, minstreth, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER3H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter3h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER4H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter4h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER5H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter5h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER6H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter6h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER7H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter7h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER8H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter8h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER9H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter9h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER10H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter10h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER11H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter11h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER12H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter12h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER13H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter13h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER14H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter14h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER15H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter15h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER16H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter16h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER17H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter17h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER18H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter18h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER19H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter19h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER20H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter20h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER21H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter21h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER22H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter22h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER23H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter23h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER24H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter24h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER25H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter25h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER26H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter26h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER27H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter27h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER28H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter28h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER29H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter29h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER30H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter30h, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMCOUNTER31H, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmcounter31h, x0\n");
+    
+    // Machine Counter Setup
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MCOUNTINHIBIT, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mcountinhibit, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT3, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent3, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT4, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent4, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT5, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent5, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT6, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent6, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT7, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent7, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT8, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent8, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT9, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent9, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT10, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent10, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT11, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent11, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT12, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent12, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT13, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent13, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT14, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent14, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT15, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent15, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT16, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent16, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT17, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent17, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT18, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent18, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT19, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent19, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT20, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent20, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT21, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent21, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT22, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent22, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT23, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent23, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT24, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent24, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT25, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent25, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT26, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent26, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT27, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent27, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT28, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent28, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT29, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent29, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT30, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent30, x0\n");
+    
+    let mut builder = Riscv64InstructionBuilder::new();
+    builder.csrrw(reg::X0, csr::MHPMEVENT31, reg::X0);
+    compare_instruction(builder.instructions()[0], "csrrw x0, mhpmevent31, x0\n");
+}
