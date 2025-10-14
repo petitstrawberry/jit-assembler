@@ -1975,3 +1975,113 @@ mod register_tracking_tests {
         assert_eq!(t0_count, 1);
     }
 }
+
+#[test]
+fn test_all_new_m_mode_csr_addresses() {
+    // Machine Information Registers
+    assert_eq!(csr::MVENDORID.value(), 0xf11);
+    assert_eq!(csr::MARCHID.value(), 0xf12);
+    assert_eq!(csr::MIMPID.value(), 0xf13);
+    assert_eq!(csr::MHARTID.value(), 0xf14);
+    assert_eq!(csr::MCONFIGPTR.value(), 0xf15);
+    
+    // Machine Trap Setup
+    assert_eq!(csr::MSTATUS.value(), 0x300);
+    assert_eq!(csr::MISA.value(), 0x301);
+    assert_eq!(csr::MEDELEG.value(), 0x302);
+    assert_eq!(csr::MIDELEG.value(), 0x303);
+    assert_eq!(csr::MIE.value(), 0x304);
+    assert_eq!(csr::MTVEC.value(), 0x305);
+    assert_eq!(csr::MCOUNTEREN.value(), 0x306);
+    assert_eq!(csr::MSTATUSH.value(), 0x310);
+    
+    // Machine Trap Handling
+    assert_eq!(csr::MSCRATCH.value(), 0x340);
+    assert_eq!(csr::MEPC.value(), 0x341);
+    assert_eq!(csr::MCAUSE.value(), 0x342);
+    assert_eq!(csr::MTVAL.value(), 0x343);
+    assert_eq!(csr::MIP.value(), 0x344);
+    assert_eq!(csr::MTINST.value(), 0x34a);
+    assert_eq!(csr::MTVAL2.value(), 0x34b);
+    
+    // Machine Configuration
+    assert_eq!(csr::MENVCFG.value(), 0x30a);
+    assert_eq!(csr::MENVCFGH.value(), 0x31a);
+    assert_eq!(csr::MSECCFG.value(), 0x747);
+    assert_eq!(csr::MSECCFGH.value(), 0x757);
+    
+    // Machine Memory Protection - Configuration
+    assert_eq!(csr::PMPCFG0.value(), 0x3a0);
+    assert_eq!(csr::PMPCFG1.value(), 0x3a1);
+    assert_eq!(csr::PMPCFG2.value(), 0x3a2);
+    assert_eq!(csr::PMPCFG3.value(), 0x3a3);
+    assert_eq!(csr::PMPCFG4.value(), 0x3a4);
+    assert_eq!(csr::PMPCFG5.value(), 0x3a5);
+    assert_eq!(csr::PMPCFG6.value(), 0x3a6);
+    assert_eq!(csr::PMPCFG7.value(), 0x3a7);
+    assert_eq!(csr::PMPCFG8.value(), 0x3a8);
+    assert_eq!(csr::PMPCFG9.value(), 0x3a9);
+    assert_eq!(csr::PMPCFG10.value(), 0x3aa);
+    assert_eq!(csr::PMPCFG11.value(), 0x3ab);
+    assert_eq!(csr::PMPCFG12.value(), 0x3ac);
+    assert_eq!(csr::PMPCFG13.value(), 0x3ad);
+    assert_eq!(csr::PMPCFG14.value(), 0x3ae);
+    assert_eq!(csr::PMPCFG15.value(), 0x3af);
+    
+    // Machine Memory Protection - Address (sample checks)
+    assert_eq!(csr::PMPADDR0.value(), 0x3b0);
+    assert_eq!(csr::PMPADDR1.value(), 0x3b1);
+    assert_eq!(csr::PMPADDR15.value(), 0x3bf);
+    assert_eq!(csr::PMPADDR31.value(), 0x3cf);
+    assert_eq!(csr::PMPADDR63.value(), 0x3ef);
+    
+    // Machine Counter/Timers
+    assert_eq!(csr::MCYCLE.value(), 0xb00);
+    assert_eq!(csr::MINSTRET.value(), 0xb02);
+    assert_eq!(csr::MHPMCOUNTER3.value(), 0xb03);
+    assert_eq!(csr::MHPMCOUNTER4.value(), 0xb04);
+    assert_eq!(csr::MHPMCOUNTER31.value(), 0xb1f);
+    
+    // Machine Counter/Timers - High
+    assert_eq!(csr::MCYCLEH.value(), 0xb80);
+    assert_eq!(csr::MINSTRETH.value(), 0xb82);
+    assert_eq!(csr::MHPMCOUNTER3H.value(), 0xb83);
+    assert_eq!(csr::MHPMCOUNTER31H.value(), 0xb9f);
+    
+    // Machine Counter Setup
+    assert_eq!(csr::MCOUNTINHIBIT.value(), 0x320);
+    assert_eq!(csr::MHPMEVENT3.value(), 0x323);
+    assert_eq!(csr::MHPMEVENT4.value(), 0x324);
+    assert_eq!(csr::MHPMEVENT31.value(), 0x33f);
+}
+
+#[test]
+fn test_new_csr_usage() {
+    let mut builder = Riscv64InstructionBuilder::new();
+    
+    // Test a selection of new CSRs to verify they can be used
+    builder.csrr(reg::X1, csr::MVENDORID);
+    builder.csrr(reg::X2, csr::MARCHID);
+    builder.csrr(reg::X3, csr::MIMPID);
+    builder.csrr(reg::X4, csr::MCONFIGPTR);
+    builder.csrr(reg::X5, csr::MCOUNTEREN);
+    builder.csrr(reg::X6, csr::MTINST);
+    builder.csrr(reg::X7, csr::MTVAL2);
+    builder.csrr(reg::X8, csr::MENVCFG);
+    builder.csrr(reg::X9, csr::MSECCFG);
+    builder.csrr(reg::X10, csr::PMPCFG0);
+    builder.csrr(reg::X11, csr::PMPADDR0);
+    builder.csrr(reg::X12, csr::MCYCLE);
+    builder.csrr(reg::X13, csr::MINSTRET);
+    builder.csrr(reg::X14, csr::MHPMCOUNTER3);
+    builder.csrr(reg::X15, csr::MCOUNTINHIBIT);
+    builder.csrr(reg::X16, csr::MHPMEVENT3);
+    
+    let instructions = builder.instructions();
+    assert_eq!(instructions.len(), 16);
+    
+    // Verify all instructions are properly encoded
+    for (i, instr) in instructions.iter().enumerate() {
+        assert!(instr.value() != 0, "Instruction {} should be non-zero", i);
+    }
+}
