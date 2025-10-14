@@ -25,7 +25,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-jit-assembler = "0.1"
+jit-assembler = "0.3"
 ```
 
 ### Basic Usage
@@ -83,11 +83,11 @@ For `no_std` environments, disable the default features:
 
 ```toml
 [dependencies]
-jit-assembler = { version = "0.1", default-features = false, features = ["riscv"] }
+jit-assembler = { version = "0.3", default-features = false, features = ["riscv"] }
 # Or for AArch64 only:
-# jit-assembler = { version = "0.1", default-features = false, features = ["aarch64"] }
+# jit-assembler = { version = "0.3", default-features = false, features = ["aarch64"] }
 # Or for both architectures without std:
-# jit-assembler = { version = "0.1", default-features = false, features = ["riscv", "aarch64"] }
+# jit-assembler = { version = "0.3", default-features = false, features = ["riscv", "aarch64"] }
 ```
 
 ## Architecture Support
@@ -281,7 +281,7 @@ Add the feature to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-jit-assembler = { version = "0.1", features = ["register-tracking"] }
+jit-assembler = { version = "0.3", features = ["register-tracking"] }
 ```
 
 ### Usage Example
