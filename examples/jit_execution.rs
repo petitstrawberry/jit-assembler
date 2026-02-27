@@ -1,15 +1,15 @@
 //! JIT Execution Example
-//! 
+//!
 //! This example demonstrates how to use the JIT execution functionality
 //! to create and execute functions at runtime.
-//! 
+//!
 //! This example supports both RISC-V and AArch64 architectures depending
 //! on the enabled features.
 
 use jit_assembler::common::InstructionBuilder;
 
 #[cfg(feature = "riscv64")]
-use jit_assembler::riscv64::{reg as riscv_reg, csr, Riscv64InstructionBuilder};
+use jit_assembler::riscv64::{csr, reg as riscv_reg, Riscv64InstructionBuilder};
 
 #[cfg(feature = "aarch64")]
 use jit_assembler::aarch64::{reg as aarch64_reg, Aarch64InstructionBuilder};
@@ -25,7 +25,9 @@ fn main() {
     aarch64_examples();
 
     #[cfg(not(any(feature = "riscv64", feature = "aarch64")))]
-    println!("No architecture features enabled. Enable 'riscv' or 'aarch64' features to see examples.");
+    println!(
+        "No architecture features enabled. Enable 'riscv' or 'aarch64' features to see examples."
+    );
 }
 
 #[cfg(feature = "riscv64")]
@@ -36,8 +38,8 @@ fn riscv_examples() {
     println!("\n1. Creating a function that returns 42...");
     let constant_func = unsafe {
         Riscv64InstructionBuilder::new()
-            .addi(riscv_reg::A0, riscv_reg::ZERO, 42)  // Load 42 into a0 (return value)
-            .ret()                                     // Return
+            .addi(riscv_reg::A0, riscv_reg::ZERO, 42) // Load 42 into a0 (return value)
+            .ret() // Return
             .function::<fn() -> u64>()
     };
 
@@ -58,8 +60,8 @@ fn riscv_examples() {
     println!("\n2. Creating a function that adds two numbers...");
     let add_func = unsafe {
         Riscv64InstructionBuilder::new()
-            .add(riscv_reg::A0, riscv_reg::A0, riscv_reg::A1)  // Add a0 + a1, result in a0
-            .ret()                                              // Return
+            .add(riscv_reg::A0, riscv_reg::A0, riscv_reg::A1) // Add a0 + a1, result in a0
+            .ret() // Return
             .function::<fn(u64, u64) -> u64>()
     };
 
@@ -80,9 +82,9 @@ fn riscv_examples() {
     println!("\n3. Creating a function that computes (x + 100) * 2...");
     let complex_func = unsafe {
         Riscv64InstructionBuilder::new()
-            .addi(riscv_reg::A0, riscv_reg::A0, 100)    // x + 100
-            .slli(riscv_reg::A0, riscv_reg::A0, 1)       // << 1 (multiply by 2)
-            .ret()                                       // Return
+            .addi(riscv_reg::A0, riscv_reg::A0, 100) // x + 100
+            .slli(riscv_reg::A0, riscv_reg::A0, 1) // << 1 (multiply by 2)
+            .ret() // Return
             .function::<fn(u64) -> u64>()
     };
 
@@ -103,8 +105,8 @@ fn riscv_examples() {
     println!("\n4. Creating a function that reads MEPC CSR...");
     let csr_func = unsafe {
         Riscv64InstructionBuilder::new()
-            .csrr(riscv_reg::A0, csr::MEPC)              // Read MEPC into a0
-            .ret()                                       // Return
+            .csrr(riscv_reg::A0, csr::MEPC) // Read MEPC into a0
+            .ret() // Return
             .function::<fn() -> u64>()
     };
 
@@ -129,8 +131,8 @@ fn aarch64_examples() {
     println!("\n1. Creating a function that returns 42...");
     let constant_func = unsafe {
         Aarch64InstructionBuilder::new()
-            .mov_imm(aarch64_reg::X0, 42)                  // Load 42 into X0 (return value)
-            .ret()                                         // Return
+            .mov_imm(aarch64_reg::X0, 42) // Load 42 into X0 (return value)
+            .ret() // Return
             .function::<fn() -> u64>()
     };
 
@@ -151,8 +153,8 @@ fn aarch64_examples() {
     println!("\n2. Creating a function that adds two numbers...");
     let add_func = unsafe {
         Aarch64InstructionBuilder::new()
-            .add(aarch64_reg::X0, aarch64_reg::X0, aarch64_reg::X1)  // Add X0 + X1, result in X0
-            .ret()                                                    // Return
+            .add(aarch64_reg::X0, aarch64_reg::X0, aarch64_reg::X1) // Add X0 + X1, result in X0
+            .ret() // Return
             .function::<fn(u64, u64) -> u64>()
     };
 
@@ -173,10 +175,10 @@ fn aarch64_examples() {
     println!("\n3. Creating a function that computes (x + 100) * 2...");
     let complex_func = unsafe {
         Aarch64InstructionBuilder::new()
-            .addi(aarch64_reg::X0, aarch64_reg::X0, 100)             // x + 100
-            .mov_imm(aarch64_reg::X1, 2)                             // Load 2 into X1
-            .mul(aarch64_reg::X0, aarch64_reg::X0, aarch64_reg::X1)  // Multiply by 2
-            .ret()                                                    // Return
+            .addi(aarch64_reg::X0, aarch64_reg::X0, 100) // x + 100
+            .mov_imm(aarch64_reg::X1, 2) // Load 2 into X1
+            .mul(aarch64_reg::X0, aarch64_reg::X0, aarch64_reg::X1) // Multiply by 2
+            .ret() // Return
             .function::<fn(u64) -> u64>()
     };
 

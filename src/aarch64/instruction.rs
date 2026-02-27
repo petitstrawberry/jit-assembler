@@ -1,14 +1,11 @@
+use crate::common::{Instruction as InstructionTrait, Register as RegisterTrait};
 /// AArch64 instruction formats and encoding
 use core::fmt;
-use crate::common::{
-    Instruction as InstructionTrait,
-    Register as RegisterTrait,
-};
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
 
 /// AArch64 register representation (32 general-purpose registers)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -28,24 +25,24 @@ impl RegisterTrait for Register {
     fn id(&self) -> u32 {
         self.0 as u32
     }
-    
+
     fn abi_class(&self) -> crate::common::AbiClass {
         use crate::common::AbiClass;
-        
+
         match self.0 {
             // Caller-saved registers (do not need to be preserved across calls)
-            0..=7 => AbiClass::CallerSaved,     // X0-X7: Argument/return value registers
-            8..=15 => AbiClass::CallerSaved,    // X8-X15: Caller-saved temporary registers
-            16..=17 => AbiClass::CallerSaved,   // X16-X17: Intra-procedure-call registers
-            18 => AbiClass::CallerSaved,        // X18: Platform register (caller-saved on most platforms)
-            
+            0..=7 => AbiClass::CallerSaved, // X0-X7: Argument/return value registers
+            8..=15 => AbiClass::CallerSaved, // X8-X15: Caller-saved temporary registers
+            16..=17 => AbiClass::CallerSaved, // X16-X17: Intra-procedure-call registers
+            18 => AbiClass::CallerSaved, // X18: Platform register (caller-saved on most platforms)
+
             // Callee-saved registers (must be preserved across calls)
-            19..=28 => AbiClass::CalleeSaved,   // X19-X28: Callee-saved registers
-            
+            19..=28 => AbiClass::CalleeSaved, // X19-X28: Callee-saved registers
+
             // Special-purpose registers
-            29 => AbiClass::Special,  // X29: Frame pointer (FP)
-            30 => AbiClass::Special,  // X30: Link register (LR)
-            31 => AbiClass::Special,  // X31: Stack pointer (SP) or zero register (XZR)
+            29 => AbiClass::Special, // X29: Frame pointer (FP)
+            30 => AbiClass::Special, // X30: Link register (LR)
+            31 => AbiClass::Special, // X31: Stack pointer (SP) or zero register (XZR)
 
             // Default to Special for any unhandled registers
             _ => AbiClass::Special,
@@ -78,11 +75,11 @@ impl InstructionTrait for Instruction {
     fn value(&self) -> u64 {
         self.0 as u64
     }
-    
+
     fn bytes(&self) -> Vec<u8> {
         self.0.to_le_bytes().to_vec()
     }
-    
+
     fn size(&self) -> usize {
         4
     }
@@ -95,15 +92,23 @@ impl fmt::Display for Instruction {
 }
 
 /// Data Processing - Register instruction encoding (3-operand)  
-pub fn encode_add_sub_reg(sf: u8, op: u8, s: u8, rm: Register, imm6: u8, rn: Register, rd: Register) -> Instruction {
+pub fn encode_add_sub_reg(
+    sf: u8,
+    op: u8,
+    s: u8,
+    rm: Register,
+    imm6: u8,
+    rn: Register,
+    rd: Register,
+) -> Instruction {
     // ADD/SUB (shifted register) encoding according to AArch64 ISA
     // 31: sf (0=32-bit, 1=64-bit)
-    // 30: op (0=ADD, 1=SUB) 
+    // 30: op (0=ADD, 1=SUB)
     // 29: s (0=don't set flags, 1=set flags)
     // 28-24: 01011 (fixed for shifted register)
     // 23-22: shift (00=LSL, 01=LSR, 10=ASR, 11=reserved)
     // 21: 0 (fixed)
-    // 20-16: Rm 
+    // 20-16: Rm
     // 15-10: imm6 (shift amount)
     // 9-5: Rn
     // 4-0: Rd
@@ -121,7 +126,15 @@ pub fn encode_add_sub_reg(sf: u8, op: u8, s: u8, rm: Register, imm6: u8, rn: Reg
 }
 
 /// Data Processing - Immediate instruction encoding (ADD/SUB immediate)
-pub fn encode_add_sub_imm(sf: u8, op: u8, s: u8, sh: u8, imm12: u16, rn: Register, rd: Register) -> Instruction {
+pub fn encode_add_sub_imm(
+    sf: u8,
+    op: u8,
+    s: u8,
+    sh: u8,
+    imm12: u16,
+    rn: Register,
+    rd: Register,
+) -> Instruction {
     let instr = ((sf as u32) << 31) |
                 ((op as u32) << 30) |
                 ((s as u32) << 29) |
@@ -134,7 +147,16 @@ pub fn encode_add_sub_imm(sf: u8, op: u8, s: u8, sh: u8, imm12: u16, rn: Registe
 }
 
 /// Logical instruction encoding (register)
-pub fn encode_logical_reg(sf: u8, opc: u8, shift: u8, n: u8, rm: Register, imm6: u8, rn: Register, rd: Register) -> Instruction {
+pub fn encode_logical_reg(
+    sf: u8,
+    opc: u8,
+    shift: u8,
+    n: u8,
+    rm: Register,
+    imm6: u8,
+    rn: Register,
+    rd: Register,
+) -> Instruction {
     let instr = ((sf as u32) << 31) |
                 ((opc as u32) << 29) |
                 (0b01010 << 24) |  // Fixed bits for logical register
@@ -148,7 +170,15 @@ pub fn encode_logical_reg(sf: u8, opc: u8, shift: u8, n: u8, rm: Register, imm6:
 }
 
 /// Multiply instruction encoding
-pub fn encode_multiply(sf: u8, op31: u8, rm: Register, o0: u8, ra: Register, rn: Register, rd: Register) -> Instruction {
+pub fn encode_multiply(
+    sf: u8,
+    op31: u8,
+    rm: Register,
+    o0: u8,
+    ra: Register,
+    rn: Register,
+    rd: Register,
+) -> Instruction {
     // For MUL x0, x1, x2 -> encoding should be 0x9b027c20
     // AArch64 Data Processing -- 3 source format:
     // sf | op54 | 11011 | op31 | Rm | o0 | Ra | Rn | Rd
@@ -161,12 +191,19 @@ pub fn encode_multiply(sf: u8, op31: u8, rm: Register, o0: u8, ra: Register, rn:
                 ((o0 as u32) << 15) |         // o0 (operation variant)
                 ((ra.value() as u32) << 10) | // Ra (accumulator, XZR for MUL)
                 ((rn.value() as u32) << 5) |  // Rn (source register 1)
-                (rd.value() as u32);          // Rd (destination)
+                (rd.value() as u32); // Rd (destination)
     Instruction::new(instr)
 }
 
 /// Division instruction encoding - Data Processing (2 source)
-pub fn encode_divide(sf: u8, opcode: u8, rm: Register, _o0: u8, rn: Register, rd: Register) -> Instruction {
+pub fn encode_divide(
+    sf: u8,
+    opcode: u8,
+    rm: Register,
+    _o0: u8,
+    rn: Register,
+    rd: Register,
+) -> Instruction {
     // Data-processing (2 source) format:
     // sf | 0 | S | 11010110 | Rm | opcode | Rn | Rd
     // For UDIV: opcode = 000010
@@ -178,7 +215,7 @@ pub fn encode_divide(sf: u8, opcode: u8, rm: Register, _o0: u8, rn: Register, rd
                 ((rm.value() as u32) << 16) | // Rm register
                 ((opcode as u32) << 10) |     // opcode (UDIV=000010, SDIV=000011)
                 ((rn.value() as u32) << 5) |  // Rn register
-                (rd.value() as u32);          // Rd register
+                (rd.value() as u32); // Rd register
     Instruction::new(instr)
 }
 
@@ -196,25 +233,25 @@ pub fn encode_ret(rn: Register) -> Instruction {
     // The 0x5f pattern is bits 16-22: 0101111 (bit pattern: 0x5f at positions 16-22)
     let instr = 0xd6000000 |           // Base RET instruction pattern
                 (0x5f << 16) |         // bits 22-16: 0101111 (matches GNU assembler exactly)
-                ((rn.value() as u32) << 5);  // bits 9-5: Rn
+                ((rn.value() as u32) << 5); // bits 9-5: Rn
     Instruction::new(instr)
 }
 
 /// Branch register instruction encoding (BR)
 pub fn encode_branch_reg(opc: u8, op2: u8, op3: u8, rn: Register, op4: u8) -> Instruction {
-    let instr = (0b1101011 << 25) |
-                ((opc as u32) << 21) |
-                ((op2 as u32) << 16) |
-                ((op3 as u32) << 10) |
-                ((rn.value() as u32) << 5) |
-                (op4 as u32);
+    let instr = (0b1101011 << 25)
+        | ((opc as u32) << 21)
+        | ((op2 as u32) << 16)
+        | ((op3 as u32) << 10)
+        | ((rn.value() as u32) << 5)
+        | (op4 as u32);
     Instruction::new(instr)
 }
 
 /// Common registers
 pub mod reg {
     use super::Register;
-    
+
     // Standard register names (X0-X30)
     pub const X0: Register = Register::new(0);
     pub const X1: Register = Register::new(1);
@@ -247,15 +284,15 @@ pub mod reg {
     pub const X28: Register = Register::new(28);
     pub const X29: Register = Register::new(29);
     pub const X30: Register = Register::new(30);
-    
+
     // X31 is special - it's SP in some contexts, XZR/WZR in others
-    pub const SP: Register = Register::new(31);   // Stack pointer
-    pub const XZR: Register = Register::new(31);  // Zero register (64-bit)
-    pub const WZR: Register = Register::new(31);  // Zero register (32-bit)
+    pub const SP: Register = Register::new(31); // Stack pointer
+    pub const XZR: Register = Register::new(31); // Zero register (64-bit)
+    pub const WZR: Register = Register::new(31); // Zero register (32-bit)
 
     // AArch64 ABI register aliases
-    pub const FP: Register = X29;    // Frame pointer
-    pub const LR: Register = X30;    // Link register
+    pub const FP: Register = X29; // Frame pointer
+    pub const LR: Register = X30; // Link register
 }
 
 /// MOVZ instruction encoding - Move immediate with zero
@@ -268,7 +305,7 @@ pub fn encode_movz(sf: u8, hw: u8, imm16: u16, rd: Register) -> Instruction {
                 (0b100101 << 23) |            // Fixed bits for move wide immediate
                 ((hw as u32) << 21) |         // hw (shift amount / 16)
                 ((imm16 as u32) << 5) |       // imm16 (16-bit immediate)
-                (rd.value() as u32);          // Rd (destination register)
+                (rd.value() as u32); // Rd (destination register)
     Instruction::new(instr)
 }
 
@@ -282,6 +319,6 @@ pub fn encode_movk(sf: u8, hw: u8, imm16: u16, rd: Register) -> Instruction {
                 (0b100101 << 23) |            // Fixed bits for move wide immediate
                 ((hw as u32) << 21) |         // hw (shift amount / 16)
                 ((imm16 as u32) << 5) |       // imm16 (16-bit immediate)
-                (rd.value() as u32);          // Rd (destination register)
+                (rd.value() as u32); // Rd (destination register)
     Instruction::new(instr)
 }

@@ -33,7 +33,8 @@
 //!     .addi(reg::A0, reg::ZERO, 100)
 //!     .add(reg::A1, reg::A0, reg::SP)
 //!     .ret()
-//!     .instructions();
+//!     .instructions()
+//!     .unwrap();
 //!
 //! // Macro style (concise and assembly-like)
 //! let instructions3 = jit_assembler::riscv64_asm! {
@@ -48,7 +49,7 @@
 //! builder2.csrrw(reg::RA, csr::MSTATUS, reg::SP);
 //! builder2.addi(reg::A0, reg::ZERO, 100);
 //! builder2.ret();
-//! let instructions2 = builder2.instructions();
+//! let instructions2 = builder2.instructions().unwrap();
 //! // InstructionCollection provides convenient methods
 //! let bytes = instructions.to_bytes();     // Convert all to bytes
 //! let size = instructions.total_size();    // Get total size
@@ -75,7 +76,8 @@
 //! let instructions = builder
 //!     .add(reg::X0, reg::X0, reg::X1)  // Add first two arguments (X0 + X1 -> X0)
 //!     .ret()                           // Return
-//!     .instructions();
+//!     .instructions()
+//!     .unwrap();
 //!
 //! // Macro style (concise and assembly-like)
 //! let instructions3 = jit_assembler::aarch64_asm! {
@@ -92,7 +94,8 @@
 //!     .mul(reg::X0, reg::X0, reg::X1)  // Multiply X0 by 42
 //!     .addi(reg::X0, reg::X0, 100)     // Add 100 to result
 //!     .ret()                           // Return
-//!     .instructions();
+//!     .instructions()
+//!     .unwrap();
 //! # }
 //! ```
 //!
@@ -103,7 +106,7 @@
 //! # {
 //! use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
 //! use jit_assembler::common::InstructionBuilder;
-//! 
+//!
 //! // Create a JIT function that adds two numbers
 //! let add_func = unsafe {
 //!     Riscv64InstructionBuilder::new()
@@ -131,9 +134,6 @@ pub use common::jit::{CallableJitFunction, JitError};
 // Architecture-specific modules
 #[cfg(feature = "riscv64")]
 pub mod riscv64;
-
-#[cfg(feature = "x86_64")]
-pub mod x86_64;
 
 #[cfg(feature = "aarch64")]
 pub mod aarch64;
@@ -164,6 +164,6 @@ macro_rules! jit_asm_generic {
         $(
             builder.$method($($args),*);
         )*
-        builder.instructions().to_vec()
+        builder.instructions().unwrap().to_vec()
     }};
 }

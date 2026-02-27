@@ -1,14 +1,11 @@
+use crate::common::{Instruction as InstructionTrait, Register as RegisterTrait};
 /// RISC-V instruction formats and encoding
 use core::fmt;
-use crate::common::{
-    Instruction as InstructionTrait,
-    Register as RegisterTrait,
-};
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
 
 /// RISC-V register representation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -28,24 +25,24 @@ impl RegisterTrait for Register {
     fn id(&self) -> u32 {
         self.0 as u32
     }
-    
+
     fn abi_class(&self) -> crate::common::AbiClass {
         use crate::common::AbiClass;
-        
+
         match self.0 {
             // Caller-saved registers (do not need to be preserved across calls)
-            1 => AbiClass::CallerSaved,         // RA (return address) - caller-saved
-            5..=7 | 28..=31 => AbiClass::CallerSaved,  // T0-T2, T3-T6 (temporaries)
-            10..=17 => AbiClass::CallerSaved,   // A0-A7 (arguments/return values)
-            
+            1 => AbiClass::CallerSaved, // RA (return address) - caller-saved
+            5..=7 | 28..=31 => AbiClass::CallerSaved, // T0-T2, T3-T6 (temporaries)
+            10..=17 => AbiClass::CallerSaved, // A0-A7 (arguments/return values)
+
             // Callee-saved registers (must be preserved across calls)
-            2 => AbiClass::CalleeSaved,         // SP (stack pointer) - callee-saved
-            8..=9 | 18..=27 => AbiClass::CalleeSaved,  // S0-S1, S2-S11 (saved registers)
-            
+            2 => AbiClass::CalleeSaved, // SP (stack pointer) - callee-saved
+            8..=9 | 18..=27 => AbiClass::CalleeSaved, // S0-S1, S2-S11 (saved registers)
+
             // Special-purpose registers
-            0 => AbiClass::Special,  // X0 (zero register) - hardwired to zero
-            3 => AbiClass::Special,  // GP (global pointer) - special purpose
-            4 => AbiClass::Special,  // TP (thread pointer) - special purpose
+            0 => AbiClass::Special, // X0 (zero register) - hardwired to zero
+            3 => AbiClass::Special, // GP (global pointer) - special purpose
+            4 => AbiClass::Special, // TP (thread pointer) - special purpose
 
             // Default to Special for any unhandled registers
             _ => AbiClass::Special,
@@ -81,7 +78,7 @@ impl Instruction {
     pub fn new(value: u32) -> Self {
         Self::Standard(value)
     }
-    
+
     /// Create a new 16-bit compressed instruction
     pub fn new_compressed(value: u16) -> Self {
         Self::Compressed(value)
@@ -102,7 +99,7 @@ impl Instruction {
             Self::Compressed(val) => val.to_le_bytes().to_vec(),
         }
     }
-    
+
     /// Get the size of this instruction in bytes
     pub fn size(&self) -> usize {
         match self {
@@ -152,21 +149,45 @@ impl fmt::Display for Instruction {
 /// I-type instruction encoding
 pub fn encode_i_type(opcode: u8, rd: Register, funct3: u8, rs1: Register, imm: i16) -> Instruction {
     let imm = imm as u32 & 0xfff;
-    let instr = (imm << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
+    let instr = (imm << 20)
+        | ((rs1.value() as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | ((rd.value() as u32) << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
 /// CSR instruction encoding (I-type variant)
-pub fn encode_csr_type(opcode: u8, rd: Register, funct3: u8, rs1: Register, csr: Csr) -> Instruction {
+pub fn encode_csr_type(
+    opcode: u8,
+    rd: Register,
+    funct3: u8,
+    rs1: Register,
+    csr: Csr,
+) -> Instruction {
     let csr_val = csr.value() as u32;
-    let instr = (csr_val << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
+    let instr = (csr_val << 20)
+        | ((rs1.value() as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | ((rd.value() as u32) << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
 /// CSR immediate instruction encoding
-pub fn encode_csr_imm_type(opcode: u8, rd: Register, funct3: u8, uimm: u8, csr: Csr) -> Instruction {
+pub fn encode_csr_imm_type(
+    opcode: u8,
+    rd: Register,
+    funct3: u8,
+    uimm: u8,
+    csr: Csr,
+) -> Instruction {
     let csr_val = csr.value() as u32;
-    let instr = (csr_val << 20) | ((uimm as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
+    let instr = (csr_val << 20)
+        | ((uimm as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | ((rd.value() as u32) << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
@@ -177,28 +198,64 @@ pub fn encode_privileged_type(opcode: u8, funct12: u16) -> Instruction {
 }
 
 /// R-type instruction encoding
-pub fn encode_r_type(opcode: u8, rd: Register, funct3: u8, rs1: Register, rs2: Register, funct7: u8) -> Instruction {
-    let instr = ((funct7 as u32) << 25) | ((rs2.value() as u32) << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
+pub fn encode_r_type(
+    opcode: u8,
+    rd: Register,
+    funct3: u8,
+    rs1: Register,
+    rs2: Register,
+    funct7: u8,
+) -> Instruction {
+    let instr = ((funct7 as u32) << 25)
+        | ((rs2.value() as u32) << 20)
+        | ((rs1.value() as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | ((rd.value() as u32) << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
 /// S-type instruction encoding (Store)
-pub fn encode_s_type(opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+pub fn encode_s_type(
+    opcode: u8,
+    funct3: u8,
+    rs1: Register,
+    rs2: Register,
+    imm: i16,
+) -> Instruction {
     let imm = imm as u32 & 0xfff;
     let imm_11_5 = (imm >> 5) & 0x7f;
     let imm_4_0 = imm & 0x1f;
-    let instr = (imm_11_5 << 25) | ((rs2.value() as u32) << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | (imm_4_0 << 7) | (opcode as u32);
+    let instr = (imm_11_5 << 25)
+        | ((rs2.value() as u32) << 20)
+        | ((rs1.value() as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | (imm_4_0 << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
 /// B-type instruction encoding (Branch)
-pub fn encode_b_type(opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+pub fn encode_b_type(
+    opcode: u8,
+    funct3: u8,
+    rs1: Register,
+    rs2: Register,
+    imm: i16,
+) -> Instruction {
     let imm = (imm as u32) & 0x1ffe; // 13-bit signed immediate
     let imm_12 = (imm >> 12) & 0x1;
     let imm_10_5 = (imm >> 5) & 0x3f;
     let imm_4_1 = (imm >> 1) & 0xf;
     let imm_11 = (imm >> 11) & 0x1;
-    let instr = (imm_12 << 31) | (imm_10_5 << 25) | ((rs2.value() as u32) << 20) | ((rs1.value() as u32) << 15) | ((funct3 as u32) << 12) | (imm_4_1 << 8) | (imm_11 << 7) | (opcode as u32);
+    let instr = (imm_12 << 31)
+        | (imm_10_5 << 25)
+        | ((rs2.value() as u32) << 20)
+        | ((rs1.value() as u32) << 15)
+        | ((funct3 as u32) << 12)
+        | (imm_4_1 << 8)
+        | (imm_11 << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
@@ -216,7 +273,12 @@ pub fn encode_j_type(opcode: u8, rd: Register, imm: i32) -> Instruction {
     let imm_10_1 = (imm >> 1) & 0x3ff;
     let imm_11 = (imm >> 11) & 0x1;
     let imm_19_12 = (imm >> 12) & 0xff;
-    let instr = (imm_20 << 31) | (imm_10_1 << 21) | (imm_11 << 20) | (imm_19_12 << 12) | ((rd.value() as u32) << 7) | (opcode as u32);
+    let instr = (imm_20 << 31)
+        | (imm_10_1 << 21)
+        | (imm_11 << 20)
+        | (imm_19_12 << 12)
+        | ((rd.value() as u32) << 7)
+        | (opcode as u32);
     Instruction::Standard(instr)
 }
 
@@ -248,11 +310,11 @@ pub mod system_funct3 {
 
 /// Privileged instruction function codes (funct12 field)
 pub mod privileged_funct12 {
-    pub const ECALL: u16 = 0x000;  // Environment call
+    pub const ECALL: u16 = 0x000; // Environment call
     pub const EBREAK: u16 = 0x001; // Environment break
-    pub const SRET: u16 = 0x102;   // Supervisor return
-    pub const MRET: u16 = 0x302;   // Machine return
-    pub const WFI: u16 = 0x105;    // Wait for interrupt
+    pub const SRET: u16 = 0x102; // Supervisor return
+    pub const MRET: u16 = 0x302; // Machine return
+    pub const WFI: u16 = 0x105; // Wait for interrupt
 }
 
 /// Branch instruction function codes
@@ -299,14 +361,14 @@ pub mod alu_funct3 {
 /// M Extension (Multiply/Divide) instruction function codes
 /// All M-extension instructions use funct7 = 0x01 and opcode = OP (0x33)
 pub mod m_funct3 {
-    pub const MUL: u8 = 0x0;      // Multiply (low 64 bits)
-    pub const MULH: u8 = 0x1;     // Multiply high (signed × signed)
-    pub const MULHSU: u8 = 0x2;   // Multiply high (signed × unsigned)
-    pub const MULHU: u8 = 0x3;    // Multiply high (unsigned × unsigned)
-    pub const DIV: u8 = 0x4;      // Divide (signed)
-    pub const DIVU: u8 = 0x5;     // Divide (unsigned)
-    pub const REM: u8 = 0x6;      // Remainder (signed)
-    pub const REMU: u8 = 0x7;     // Remainder (unsigned)
+    pub const MUL: u8 = 0x0; // Multiply (low 64 bits)
+    pub const MULH: u8 = 0x1; // Multiply high (signed × signed)
+    pub const MULHSU: u8 = 0x2; // Multiply high (signed × unsigned)
+    pub const MULHU: u8 = 0x3; // Multiply high (unsigned × unsigned)
+    pub const DIV: u8 = 0x4; // Divide (signed)
+    pub const DIVU: u8 = 0x5; // Divide (unsigned)
+    pub const REM: u8 = 0x6; // Remainder (signed)
+    pub const REMU: u8 = 0x7; // Remainder (unsigned)
 }
 
 /// M Extension funct7 code
@@ -317,14 +379,14 @@ pub mod m_funct7 {
 /// Common CSR addresses
 pub mod csr {
     use super::Csr;
-    
+
     // Machine Information Registers
     pub const MVENDORID: Csr = Csr::new(0xf11);
     pub const MARCHID: Csr = Csr::new(0xf12);
     pub const MIMPID: Csr = Csr::new(0xf13);
     pub const MHARTID: Csr = Csr::new(0xf14);
     pub const MCONFIGPTR: Csr = Csr::new(0xf15);
-    
+
     // Machine Trap Setup
     pub const MSTATUS: Csr = Csr::new(0x300);
     pub const MISA: Csr = Csr::new(0x301);
@@ -334,7 +396,7 @@ pub mod csr {
     pub const MTVEC: Csr = Csr::new(0x305);
     pub const MCOUNTEREN: Csr = Csr::new(0x306);
     pub const MSTATUSH: Csr = Csr::new(0x310);
-    
+
     // Machine Trap Handling
     pub const MSCRATCH: Csr = Csr::new(0x340);
     pub const MEPC: Csr = Csr::new(0x341);
@@ -343,13 +405,13 @@ pub mod csr {
     pub const MIP: Csr = Csr::new(0x344);
     pub const MTINST: Csr = Csr::new(0x34a);
     pub const MTVAL2: Csr = Csr::new(0x34b);
-    
+
     // Machine Configuration
     pub const MENVCFG: Csr = Csr::new(0x30a);
     pub const MENVCFGH: Csr = Csr::new(0x31a);
     pub const MSECCFG: Csr = Csr::new(0x747);
     pub const MSECCFGH: Csr = Csr::new(0x757);
-    
+
     // Machine Memory Protection - Configuration
     pub const PMPCFG0: Csr = Csr::new(0x3a0);
     pub const PMPCFG1: Csr = Csr::new(0x3a1);
@@ -367,7 +429,7 @@ pub mod csr {
     pub const PMPCFG13: Csr = Csr::new(0x3ad);
     pub const PMPCFG14: Csr = Csr::new(0x3ae);
     pub const PMPCFG15: Csr = Csr::new(0x3af);
-    
+
     // Machine Memory Protection - Address
     pub const PMPADDR0: Csr = Csr::new(0x3b0);
     pub const PMPADDR1: Csr = Csr::new(0x3b1);
@@ -433,7 +495,7 @@ pub mod csr {
     pub const PMPADDR61: Csr = Csr::new(0x3ed);
     pub const PMPADDR62: Csr = Csr::new(0x3ee);
     pub const PMPADDR63: Csr = Csr::new(0x3ef);
-    
+
     // Machine Counter/Timers
     pub const MCYCLE: Csr = Csr::new(0xb00);
     pub const MINSTRET: Csr = Csr::new(0xb02);
@@ -466,7 +528,7 @@ pub mod csr {
     pub const MHPMCOUNTER29: Csr = Csr::new(0xb1d);
     pub const MHPMCOUNTER30: Csr = Csr::new(0xb1e);
     pub const MHPMCOUNTER31: Csr = Csr::new(0xb1f);
-    
+
     // Machine Counter/Timers - High (for RV32)
     pub const MCYCLEH: Csr = Csr::new(0xb80);
     pub const MINSTRETH: Csr = Csr::new(0xb82);
@@ -499,7 +561,7 @@ pub mod csr {
     pub const MHPMCOUNTER29H: Csr = Csr::new(0xb9d);
     pub const MHPMCOUNTER30H: Csr = Csr::new(0xb9e);
     pub const MHPMCOUNTER31H: Csr = Csr::new(0xb9f);
-    
+
     // Machine Counter Setup
     pub const MCOUNTINHIBIT: Csr = Csr::new(0x320);
     pub const MHPMEVENT3: Csr = Csr::new(0x323);
@@ -531,7 +593,7 @@ pub mod csr {
     pub const MHPMEVENT29: Csr = Csr::new(0x33d);
     pub const MHPMEVENT30: Csr = Csr::new(0x33e);
     pub const MHPMEVENT31: Csr = Csr::new(0x33f);
-    
+
     // Supervisor-mode CSRs
     pub const SSTATUS: Csr = Csr::new(0x100);
     pub const SIE: Csr = Csr::new(0x104);
@@ -546,7 +608,7 @@ pub mod csr {
 /// Common registers
 pub mod reg {
     use super::Register;
-    
+
     // Standard register names (x0-x31)
     pub const X0: Register = Register::new(0);
     pub const X1: Register = Register::new(1);
@@ -582,37 +644,37 @@ pub mod reg {
     pub const X31: Register = Register::new(31);
 
     // RISC-V ABI register aliases
-    pub const ZERO: Register = X0;  // Hard-wired zero
-    pub const RA: Register = X1;    // Return address
-    pub const SP: Register = X2;    // Stack pointer
-    pub const GP: Register = X3;    // Global pointer
-    pub const TP: Register = X4;    // Thread pointer
-    pub const T0: Register = X5;    // Temporary register 0
-    pub const T1: Register = X6;    // Temporary register 1
-    pub const T2: Register = X7;    // Temporary register 2
-    pub const S0: Register = X8;    // Saved register 0 / Frame pointer
-    pub const FP: Register = X8;    // Frame pointer (alias for s0)
-    pub const S1: Register = X9;    // Saved register 1
-    pub const A0: Register = X10;   // Function argument 0 / Return value 0
-    pub const A1: Register = X11;   // Function argument 1 / Return value 1
-    pub const A2: Register = X12;   // Function argument 2
-    pub const A3: Register = X13;   // Function argument 3
-    pub const A4: Register = X14;   // Function argument 4
-    pub const A5: Register = X15;   // Function argument 5
-    pub const A6: Register = X16;   // Function argument 6
-    pub const A7: Register = X17;   // Function argument 7
-    pub const S2: Register = X18;   // Saved register 2
-    pub const S3: Register = X19;   // Saved register 3
-    pub const S4: Register = X20;   // Saved register 4
-    pub const S5: Register = X21;   // Saved register 5
-    pub const S6: Register = X22;   // Saved register 6
-    pub const S7: Register = X23;   // Saved register 7
-    pub const S8: Register = X24;   // Saved register 8
-    pub const S9: Register = X25;   // Saved register 9
-    pub const S10: Register = X26;  // Saved register 10
-    pub const S11: Register = X27;  // Saved register 11
-    pub const T3: Register = X28;   // Temporary register 3
-    pub const T4: Register = X29;   // Temporary register 4
-    pub const T5: Register = X30;   // Temporary register 5
-    pub const T6: Register = X31;   // Temporary register 6
+    pub const ZERO: Register = X0; // Hard-wired zero
+    pub const RA: Register = X1; // Return address
+    pub const SP: Register = X2; // Stack pointer
+    pub const GP: Register = X3; // Global pointer
+    pub const TP: Register = X4; // Thread pointer
+    pub const T0: Register = X5; // Temporary register 0
+    pub const T1: Register = X6; // Temporary register 1
+    pub const T2: Register = X7; // Temporary register 2
+    pub const S0: Register = X8; // Saved register 0 / Frame pointer
+    pub const FP: Register = X8; // Frame pointer (alias for s0)
+    pub const S1: Register = X9; // Saved register 1
+    pub const A0: Register = X10; // Function argument 0 / Return value 0
+    pub const A1: Register = X11; // Function argument 1 / Return value 1
+    pub const A2: Register = X12; // Function argument 2
+    pub const A3: Register = X13; // Function argument 3
+    pub const A4: Register = X14; // Function argument 4
+    pub const A5: Register = X15; // Function argument 5
+    pub const A6: Register = X16; // Function argument 6
+    pub const A7: Register = X17; // Function argument 7
+    pub const S2: Register = X18; // Saved register 2
+    pub const S3: Register = X19; // Saved register 3
+    pub const S4: Register = X20; // Saved register 4
+    pub const S5: Register = X21; // Saved register 5
+    pub const S6: Register = X22; // Saved register 6
+    pub const S7: Register = X23; // Saved register 7
+    pub const S8: Register = X24; // Saved register 8
+    pub const S9: Register = X25; // Saved register 9
+    pub const S10: Register = X26; // Saved register 10
+    pub const S11: Register = X27; // Saved register 11
+    pub const T3: Register = X28; // Temporary register 3
+    pub const T4: Register = X29; // Temporary register 4
+    pub const T5: Register = X30; // Temporary register 5
+    pub const T6: Register = X31; // Temporary register 6
 }

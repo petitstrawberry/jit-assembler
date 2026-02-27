@@ -1,15 +1,16 @@
 /// Instruction builder interface for AArch64 assembly generation
 use super::instruction::*;
-use crate::common::InstructionBuilder;
+use crate::common::{BuildError, InstructionBuilder};
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
 
 /// Instruction builder for generating AArch64 instructions
 pub struct Aarch64InstructionBuilder {
     instructions: Vec<Instruction>,
+    error: Option<BuildError>,
     #[cfg(feature = "register-tracking")]
     register_usage: crate::common::register_usage::RegisterUsageInfo<Register>,
 }
@@ -18,23 +19,24 @@ impl Aarch64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            error: None,
             #[cfg(feature = "register-tracking")]
             register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
-    
+
     /// Track a written register (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_written_register(&mut self, reg: Register) {
         self.register_usage.add_written_register(reg);
     }
-    
+
     /// Track a read register (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_read_register(&mut self, reg: Register) {
         self.register_usage.add_read_register(reg);
     }
-    
+
     /// Track multiple read registers at once (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_read_registers(&mut self, regs: &[Register]) {
@@ -42,18 +44,18 @@ impl Aarch64InstructionBuilder {
             self.register_usage.add_read_register(reg);
         }
     }
-    
+
     /// No-op versions for when register-tracking is disabled
     #[cfg(not(feature = "register-tracking"))]
     fn track_written_register(&mut self, _reg: Register) {
         // No-op
     }
-    
+
     #[cfg(not(feature = "register-tracking"))]
     fn track_read_register(&mut self, _reg: Register) {
         // No-op
     }
-    
+
     #[cfg(not(feature = "register-tracking"))]
     fn track_read_registers(&mut self, _regs: &[Register]) {
         // No-op
@@ -166,22 +168,22 @@ impl Aarch64InstructionBuilder {
 
     // DEPRECATED: urem was using a hardcoded temporary register (X17) which is unsafe
     // Users should implement remainder manually using udiv + msub with their own temp register
-    // Example: 
-    //   .udiv(temp_reg, dividend, divisor)  // temp = dividend / divisor  
+    // Example:
+    //   .udiv(temp_reg, dividend, divisor)  // temp = dividend / divisor
     //   .msub(result, temp, divisor, dividend)  // result = dividend - (temp * divisor)
     //
-    // /// Generate remainder operation using MSUB after division  
+    // /// Generate remainder operation using MSUB after division
     // /// This creates a sequence: UDIV tmp, rn, rm; MSUB rd, tmp, rm, rn
     // /// Result: rd = rn - (rn / rm) * rm = rn % rm
     // pub fn urem(&mut self, rd: Register, rn: Register, rm: Register) -> &mut Self {
     //     // We need a temporary register - use X17 (IP1) which is caller-saved
     //     let tmp = reg::X17;
-    //     
+    //
     //     // UDIV tmp, rn, rm
     //     self.track_read_registers(&[rn, rm]);
     //     let div_instr = encode_divide(1, 0b000010, rm, 1, rn, tmp); // opcode=000010 for UDIV
     //     self.push(div_instr);
-    //     
+    //
     //     // MSUB rd, tmp, rm, rn  (rd = rn - tmp * rm)
     //     self.track_written_register(rd);
     //     self.track_read_registers(&[tmp, rm, rn]);
@@ -276,19 +278,19 @@ impl Aarch64InstructionBuilder {
         }
 
         // Break down the 64-bit immediate into 16-bit chunks
-        let chunk0 = (imm & 0xFFFF) as u16;         // Bits 0-15
-        let chunk1 = ((imm >> 16) & 0xFFFF) as u16; // Bits 16-31  
+        let chunk0 = (imm & 0xFFFF) as u16; // Bits 0-15
+        let chunk1 = ((imm >> 16) & 0xFFFF) as u16; // Bits 16-31
         let chunk2 = ((imm >> 32) & 0xFFFF) as u16; // Bits 32-47
         let chunk3 = ((imm >> 48) & 0xFFFF) as u16; // Bits 48-63
 
         // Find the first non-zero chunk to use MOVZ
         let mut first_movz_done = false;
-        
+
         if chunk0 != 0 {
             self.movz(rd, chunk0, 0); // LSL #0
             first_movz_done = true;
         }
-        
+
         if chunk1 != 0 {
             if first_movz_done {
                 self.movk(rd, chunk1, 1); // LSL #16
@@ -297,7 +299,7 @@ impl Aarch64InstructionBuilder {
                 first_movz_done = true;
             }
         }
-        
+
         if chunk2 != 0 {
             if first_movz_done {
                 self.movk(rd, chunk2, 2); // LSL #32
@@ -306,7 +308,7 @@ impl Aarch64InstructionBuilder {
                 first_movz_done = true;
             }
         }
-        
+
         if chunk3 != 0 {
             if first_movz_done {
                 self.movk(rd, chunk3, 3); // LSL #48
@@ -346,17 +348,31 @@ impl Aarch64InstructionBuilder {
 
 impl InstructionBuilder<Instruction> for Aarch64InstructionBuilder {
     type Register = Register;
-    
+    type Error = BuildError;
+
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            error: None,
             #[cfg(feature = "register-tracking")]
             register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
 
-    fn instructions(&self) -> crate::common::InstructionCollection<Instruction> {
-        crate::common::InstructionCollection::from_slice(&self.instructions)
+    fn instructions(
+        &self,
+    ) -> Result<crate::common::InstructionCollection<Instruction>, Self::Error> {
+        if let Some(ref error) = self.error {
+            Err(*error)
+        } else {
+            Ok(crate::common::InstructionCollection::from_slice(
+                &self.instructions,
+            ))
+        }
+    }
+
+    fn set_error(&mut self, error: Self::Error) {
+        self.error = Some(error);
     }
 
     fn push(&mut self, instr: Instruction) {
@@ -365,58 +381,65 @@ impl InstructionBuilder<Instruction> for Aarch64InstructionBuilder {
 
     fn clear(&mut self) {
         self.instructions.clear();
+        self.error = None;
         #[cfg(feature = "register-tracking")]
         self.register_usage.clear();
     }
-    
+
     #[cfg(feature = "register-tracking")]
     fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register> {
         &self.register_usage
     }
-    
+
     #[cfg(feature = "register-tracking")]
-    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+    fn register_usage_mut(
+        &mut self,
+    ) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
         &mut self.register_usage
     }
-    
+
     /// Create a JIT-compiled function from the assembled instructions (std-only)
-    /// 
+    ///
     /// This method converts the assembled instructions into executable machine code
     /// that can be called directly as a function. The generic type parameter `F`
     /// specifies the function signature.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// This function is unsafe because:
     /// - It allocates executable memory
     /// - It assumes the assembled code follows the correct ABI
     /// - The caller must ensure the function signature matches the actual code
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust,no_run
     /// use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
     /// use jit_assembler::common::InstructionBuilder;
-    /// 
+    ///
     /// let add_func = unsafe {
     ///     Aarch64InstructionBuilder::new()
     ///         .add(reg::X0, reg::X0, reg::X1) // Add first two arguments
     ///         .ret()
     ///         .function::<fn(u64, u64) -> u64>()
     /// }.expect("Failed to create JIT function");
-    /// 
+    ///
     /// // Call the JIT function directly (only works on AArch64 hosts)
     /// // let result = add_func.call(10, 20); // Returns 30
     /// ```
     #[cfg(feature = "std")]
-    unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
-        let bytes = self.instructions().to_bytes();
+    unsafe fn function<F>(
+        &self,
+    ) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
+        let bytes = self.instructions()?.to_bytes();
         crate::common::jit::CallableJitFunction::<F>::new(&bytes)
     }
-    
+
     #[cfg(feature = "std")]
-    unsafe fn raw_function(&self) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError> {
-        let bytes = self.instructions().to_bytes();
+    unsafe fn raw_function(
+        &self,
+    ) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError> {
+        let bytes = self.instructions()?.to_bytes();
         crate::common::jit::RawCallableJitFunction::new(&bytes)
     }
 }
