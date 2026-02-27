@@ -54,14 +54,15 @@ let instructions2 = builder
     .beq(reg::A0, reg::A1, 8)                // Branch if equal
     .jal(reg::RA, 0x1000)                    // Jump and link
     .ret()                                   // Return instruction
-    .instructions();
+    .instructions()
+    .unwrap();
 
 // Traditional style
 let mut builder3 = Riscv64InstructionBuilder::new();
 builder3.csrrw(reg::RA, csr::MSTATUS, reg::SP);
 builder3.addi(reg::A0, reg::ZERO, 100);
 builder3.ret();
-let instructions3 = builder3.instructions();
+let instructions3 = builder3.instructions().unwrap();
 
 // Convert instructions to bytes easily
 let bytes = instructions.to_bytes();     // All instructions as one byte vector
@@ -152,6 +153,7 @@ Support for additional architectures is planned:
 ```rust
 use jit_assembler::riscv::{reg, csr, Riscv64InstructionBuilder};
 use jit_assembler::riscv64_asm;
+use jit_assembler::common::BuildError;
 
 // Simple function generator with macro
 fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
@@ -167,7 +169,7 @@ fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
 }
 
 // Builder pattern for complex logic
-fn generate_csr_routine() -> Vec<u8> {
+fn generate_csr_routine() -> Result<Vec<u8>, BuildError> {
     let mut builder = Riscv64InstructionBuilder::new();
     
     builder
@@ -176,7 +178,7 @@ fn generate_csr_routine() -> Vec<u8> {
         .csrrw(reg::A0, csr::MSTATUS, reg::T1); // Write back, old value in a0
     
     // Convert to executable code
-    builder.instructions().to_bytes()
+    Ok(builder.instructions()?.to_bytes())
 }
 ```
 
@@ -184,7 +186,7 @@ fn generate_csr_routine() -> Vec<u8> {
 
 ```rust
 use jit_assembler::aarch64::{reg, Aarch64InstructionBuilder};
-use jit_assembler::common::InstructionBuilder;
+use jit_assembler::common::{InstructionBuilder, BuildError};
 use jit_assembler::aarch64_asm;
 
 // Macro style (concise and assembly-like)
@@ -197,14 +199,14 @@ fn generate_aarch64_add_function_macro() -> Vec<u8> {
 }
 
 // Builder pattern style
-fn generate_aarch64_add_function() -> Vec<u8> {
+fn generate_aarch64_add_function() -> Result<Vec<u8>, BuildError> {
     let mut builder = Aarch64InstructionBuilder::new();
     
     builder
         .add(reg::X0, reg::X0, reg::X1)  // Add first two arguments (X0 + X1 -> X0)
         .ret();                          // Return
     
-    builder.instructions().to_bytes()
+    Ok(builder.instructions()?.to_bytes())
 }
 
 // More complex AArch64 example with immediate values (macro style)
@@ -218,7 +220,7 @@ fn generate_aarch64_calculation_macro() -> Vec<u8> {
 }
 
 // More complex AArch64 example with immediate values (builder style)
-fn generate_aarch64_calculation() -> Vec<u8> {
+fn generate_aarch64_calculation() -> Result<Vec<u8>, BuildError> {
     let mut builder = Aarch64InstructionBuilder::new();
     
     builder
@@ -227,7 +229,7 @@ fn generate_aarch64_calculation() -> Vec<u8> {
         .addi(reg::X0, reg::X0, 100)     // Add 100 to result
         .ret();                          // Return
     
-    builder.instructions().to_bytes()
+    Ok(builder.instructions()?.to_bytes())
 }
 ```
 
@@ -367,12 +369,12 @@ epilogue
     .ret();
 
 // Combine them using + operator: prologue + main + epilogue
-let combined = prologue.instructions() + main_code.instructions() + epilogue.instructions();
+let combined = prologue.instructions().unwrap() + main_code.instructions().unwrap() + epilogue.instructions().unwrap();
 
 // Or use method chaining
-let mut combined = prologue.instructions();
-combined += main_code.instructions();
-combined += epilogue.instructions();
+let mut combined = prologue.instructions().unwrap();
+combined += main_code.instructions().unwrap();
+combined += epilogue.instructions().unwrap();
 
 // Convert to executable code
 let bytes = combined.to_bytes();
@@ -398,15 +400,15 @@ epilogue.ld(reg::S0, reg::SP, -8);  // Restore S0
 
 // Create tracked collections
 let prologue_tracked = InstructionCollectionWithUsage::new(
-    prologue.instructions(),
+    prologue.instructions().unwrap(),
     prologue.register_usage().clone()
 );
 let main_tracked = InstructionCollectionWithUsage::new(
-    main_code.instructions(),
+    main_code.instructions().unwrap(),
     main_code.register_usage().clone()
 );
 let epilogue_tracked = InstructionCollectionWithUsage::new(
-    epilogue.instructions(),
+    epilogue.instructions().unwrap(),
     epilogue.register_usage().clone()
 );
 

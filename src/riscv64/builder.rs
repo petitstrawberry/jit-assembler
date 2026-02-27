@@ -1,15 +1,16 @@
 /// Instruction builder interface for RISC-V assembly generation
 use super::instruction::*;
-use crate::common::InstructionBuilder;
+use crate::common::{BuildError, InstructionBuilder};
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
 
 /// Instruction builder for generating RISC-V instructions
 pub struct Riscv64InstructionBuilder {
     instructions: Vec<Instruction>,
+    error: Option<BuildError>,
     #[cfg(feature = "register-tracking")]
     register_usage: crate::common::register_usage::RegisterUsageInfo<Register>,
 }
@@ -18,23 +19,24 @@ impl Riscv64InstructionBuilder {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            error: None,
             #[cfg(feature = "register-tracking")]
             register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
-    
+
     /// Track a written register (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_written_register(&mut self, reg: Register) {
         self.register_usage.add_written_register(reg);
     }
-    
+
     /// Track a read register (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_read_register(&mut self, reg: Register) {
         self.register_usage.add_read_register(reg);
     }
-    
+
     /// Track multiple read registers at once (register-tracking feature only)
     #[cfg(feature = "register-tracking")]
     fn track_read_registers(&mut self, regs: &[Register]) {
@@ -42,72 +44,115 @@ impl Riscv64InstructionBuilder {
             self.register_usage.add_read_register(reg);
         }
     }
-    
+
     /// No-op versions for when register-tracking is disabled
     #[cfg(not(feature = "register-tracking"))]
     fn track_written_register(&mut self, _reg: Register) {
         // No-op
     }
-    
+
     #[cfg(not(feature = "register-tracking"))]
     fn track_read_register(&mut self, _reg: Register) {
         // No-op
     }
-    
+
     #[cfg(not(feature = "register-tracking"))]
     fn track_read_registers(&mut self, _regs: &[Register]) {
         // No-op
     }
-    
+
     // Register tracking wrapper functions for encode_* functions
-    
+
     /// R-type instruction with register tracking: rd = f(rs1, rs2)
-    fn encode_r_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, rs2: Register, funct7: u8) -> Instruction {
+    fn encode_r_type_tracked(
+        &mut self,
+        opcode: u8,
+        rd: Register,
+        funct3: u8,
+        rs1: Register,
+        rs2: Register,
+        funct7: u8,
+    ) -> Instruction {
         self.track_written_register(rd);
         self.track_read_registers(&[rs1, rs2]);
         encode_r_type(opcode, rd, funct3, rs1, rs2, funct7)
     }
-    
+
     /// I-type instruction with register tracking: rd = f(rs1, imm)
-    fn encode_i_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, imm: i16) -> Instruction {
+    fn encode_i_type_tracked(
+        &mut self,
+        opcode: u8,
+        rd: Register,
+        funct3: u8,
+        rs1: Register,
+        imm: i16,
+    ) -> Instruction {
         self.track_written_register(rd);
         self.track_read_register(rs1);
         encode_i_type(opcode, rd, funct3, rs1, imm)
     }
-    
+
     /// S-type instruction with register tracking: MEM[rs1 + imm] = rs2
-    fn encode_s_type_tracked(&mut self, opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+    fn encode_s_type_tracked(
+        &mut self,
+        opcode: u8,
+        funct3: u8,
+        rs1: Register,
+        rs2: Register,
+        imm: i16,
+    ) -> Instruction {
         self.track_read_registers(&[rs1, rs2]);
         encode_s_type(opcode, funct3, rs1, rs2, imm)
     }
-    
+
     /// B-type instruction with register tracking: branch if f(rs1, rs2)
-    fn encode_b_type_tracked(&mut self, opcode: u8, funct3: u8, rs1: Register, rs2: Register, imm: i16) -> Instruction {
+    fn encode_b_type_tracked(
+        &mut self,
+        opcode: u8,
+        funct3: u8,
+        rs1: Register,
+        rs2: Register,
+        imm: i16,
+    ) -> Instruction {
         self.track_read_registers(&[rs1, rs2]);
         encode_b_type(opcode, funct3, rs1, rs2, imm)
     }
-    
+
     /// U-type instruction with register tracking: rd = imm << 12
     fn encode_u_type_tracked(&mut self, opcode: u8, rd: Register, imm: u32) -> Instruction {
         self.track_written_register(rd);
         encode_u_type(opcode, rd, imm)
     }
-    
+
     /// J-type instruction with register tracking: rd = PC + 4, PC += imm
     fn encode_j_type_tracked(&mut self, opcode: u8, rd: Register, imm: i32) -> Instruction {
         self.track_written_register(rd);
         encode_j_type(opcode, rd, imm)
     }
-    
+
     /// CSR-type instruction with register tracking: rd = CSR, CSR = f(CSR, rs1)
-    fn encode_csr_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, rs1: Register, csr: Csr) -> Instruction {
+    fn encode_csr_type_tracked(
+        &mut self,
+        opcode: u8,
+        rd: Register,
+        funct3: u8,
+        rs1: Register,
+        csr: Csr,
+    ) -> Instruction {
         self.track_written_register(rd);
         self.track_read_register(rs1);
         encode_csr_type(opcode, rd, funct3, rs1, csr)
     }
-    
+
     /// CSR immediate-type instruction with register tracking: rd = CSR, CSR = f(CSR, uimm)
-    fn encode_csr_imm_type_tracked(&mut self, opcode: u8, rd: Register, funct3: u8, uimm: u8, csr: Csr) -> Instruction {
+    fn encode_csr_imm_type_tracked(
+        &mut self,
+        opcode: u8,
+        rd: Register,
+        funct3: u8,
+        uimm: u8,
+        csr: Csr,
+    ) -> Instruction {
         self.track_written_register(rd);
         encode_csr_imm_type(opcode, rd, funct3, uimm, csr)
     }
@@ -138,17 +183,31 @@ impl Riscv64InstructionBuilder {
 
 impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
     type Register = Register;
-    
+    type Error = BuildError;
+
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            error: None,
             #[cfg(feature = "register-tracking")]
             register_usage: crate::common::register_usage::RegisterUsageInfo::new(),
         }
     }
 
-    fn instructions(&self) -> crate::common::InstructionCollection<Instruction> {
-        crate::common::InstructionCollection::from_slice(&self.instructions)
+    fn instructions(
+        &self,
+    ) -> Result<crate::common::InstructionCollection<Instruction>, Self::Error> {
+        if let Some(ref error) = self.error {
+            Err(*error)
+        } else {
+            Ok(crate::common::InstructionCollection::from_slice(
+                &self.instructions,
+            ))
+        }
+    }
+
+    fn set_error(&mut self, error: Self::Error) {
+        self.error = Some(error);
     }
 
     fn push(&mut self, instr: Instruction) {
@@ -157,59 +216,65 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
 
     fn clear(&mut self) {
         self.instructions.clear();
+        self.error = None;
         #[cfg(feature = "register-tracking")]
         self.register_usage.clear();
     }
-    
+
     #[cfg(feature = "register-tracking")]
     fn register_usage(&self) -> &crate::common::register_usage::RegisterUsageInfo<Self::Register> {
         &self.register_usage
     }
-    
+
     #[cfg(feature = "register-tracking")]
-    fn register_usage_mut(&mut self) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
+    fn register_usage_mut(
+        &mut self,
+    ) -> &mut crate::common::register_usage::RegisterUsageInfo<Self::Register> {
         &mut self.register_usage
     }
-    
+
     /// Create a JIT-compiled function from the assembled instructions (std-only)
-    /// 
+    ///
     /// This method converts the assembled instructions into executable machine code
     /// that can be called directly as a function. The generic type parameter `F`
     /// specifies the function signature.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// This function is unsafe because:
     /// - It allocates executable memory
     /// - It assumes the assembled code follows the correct ABI
     /// - The caller must ensure the function signature matches the actual code
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust,no_run
     /// use jit_assembler::riscv64::{reg, Riscv64InstructionBuilder};
     /// use jit_assembler::common::InstructionBuilder;
-    /// 
+    ///
     /// let add_func = unsafe {
     ///     Riscv64InstructionBuilder::new()
     ///         .add(reg::A0, reg::A0, reg::A1) // Add first two arguments
     ///         .ret()
     ///         .function::<fn(u64, u64) -> u64>()
     /// }.expect("Failed to create JIT function");
-    /// 
+    ///
     /// // Call the JIT function directly (only works on RISC-V hosts)
     /// let result = add_func.call(10, 20); // Should return 30
     /// ```
     #[cfg(feature = "std")]
-    unsafe fn function<F>(&self) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
-        // Convert instructions to bytes using the new Instructions struct
-        let code = self.instructions().to_bytes();
+    unsafe fn function<F>(
+        &self,
+    ) -> Result<crate::common::jit::CallableJitFunction<F>, crate::common::jit::JitError> {
+        let code = self.instructions()?.to_bytes();
         crate::common::jit::CallableJitFunction::<F>::new(&code)
     }
 
     #[cfg(feature = "std")]
-    unsafe fn raw_function(&self) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError> {
-        let code = self.instructions().to_bytes();
+    unsafe fn raw_function(
+        &self,
+    ) -> Result<crate::common::jit::RawCallableJitFunction, crate::common::jit::JitError> {
+        let code = self.instructions()?.to_bytes();
         crate::common::jit::RawCallableJitFunction::new(&code)
     }
 }
@@ -217,42 +282,48 @@ impl InstructionBuilder<Instruction> for Riscv64InstructionBuilder {
 impl Riscv64InstructionBuilder {
     /// Generate CSR read-write instruction
     pub fn csrrw(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);
+        let instr =
+            self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRW, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-set instruction
     pub fn csrrs(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRS, rs1, csr);
+        let instr =
+            self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRS, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-clear instruction
     pub fn csrrc(&mut self, rd: Register, csr: Csr, rs1: Register) -> &mut Self {
-        let instr = self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRC, rs1, csr);
+        let instr =
+            self.encode_csr_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRC, rs1, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-write immediate instruction
     pub fn csrrwi(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRWI, uimm, csr);
+        let instr =
+            self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRWI, uimm, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-set immediate instruction
     pub fn csrrsi(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRSI, uimm, csr);
+        let instr =
+            self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRSI, uimm, csr);
         self.push(instr);
         self
     }
 
     /// Generate CSR read-clear immediate instruction
     pub fn csrrci(&mut self, rd: Register, csr: Csr, uimm: u8) -> &mut Self {
-        let instr = self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRCI, uimm, csr);
+        let instr =
+            self.encode_csr_imm_type_tracked(opcodes::SYSTEM, rd, system_funct3::CSRRCI, uimm, csr);
         self.push(instr);
         self
     }
@@ -316,14 +387,13 @@ impl Riscv64InstructionBuilder {
         self
     }
 
-
     /// Generate subtract instruction
     pub fn sub(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x20);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::ADD_SUB, rs1, rs2, 0x20);
         self.push(instr);
         self
     }
-
 
     /// Generate subtract immediate instruction
     pub fn subi(&mut self, rd: Register, rs1: Register, imm: i16) -> &mut Self {
@@ -404,28 +474,37 @@ impl Riscv64InstructionBuilder {
 
     /// Generate SRA (Shift Right Arithmetic) instruction
     pub fn sra(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, alu_funct3::SRL_SRA, rs1, rs2, 0x20);
         self.push(instr);
         self
     }
 
     /// Generate SLLI (Shift Left Logical Immediate) instruction
     pub fn slli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
+        let instr =
+            self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SLL, rs1, shamt as i16);
         self.push(instr);
         self
     }
 
     /// Generate SRLI (Shift Right Logical Immediate) instruction
     pub fn srli(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
+        let instr =
+            self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, shamt as i16);
         self.push(instr);
         self
     }
 
     /// Generate SRAI (Shift Right Arithmetic Immediate) instruction
     pub fn srai(&mut self, rd: Register, rs1: Register, shamt: u8) -> &mut Self {
-        let instr = self.encode_i_type_tracked(opcodes::OP_IMM, rd, alu_funct3::SRL_SRA, rs1, (shamt as i16) | 0x400);
+        let instr = self.encode_i_type_tracked(
+            opcodes::OP_IMM,
+            rd,
+            alu_funct3::SRL_SRA,
+            rs1,
+            (shamt as i16) | 0x400,
+        );
         self.push(instr);
         self
     }
@@ -449,7 +528,8 @@ impl Riscv64InstructionBuilder {
     /// Generate MUL (Multiply) instruction
     /// Performs signed multiplication and returns the lower 64 bits of the result
     pub fn mul(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MUL, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MUL, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -457,7 +537,8 @@ impl Riscv64InstructionBuilder {
     /// Generate MULH (Multiply High) instruction
     /// Performs signed × signed multiplication and returns the upper 64 bits of the result
     pub fn mulh(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULH, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULH, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -465,7 +546,14 @@ impl Riscv64InstructionBuilder {
     /// Generate MULHSU (Multiply High Signed × Unsigned) instruction
     /// Performs signed × unsigned multiplication and returns the upper 64 bits of the result
     pub fn mulhsu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULHSU, rs1, rs2, m_funct7::M_EXT);
+        let instr = self.encode_r_type_tracked(
+            opcodes::OP,
+            rd,
+            m_funct3::MULHSU,
+            rs1,
+            rs2,
+            m_funct7::M_EXT,
+        );
         self.push(instr);
         self
     }
@@ -473,7 +561,8 @@ impl Riscv64InstructionBuilder {
     /// Generate MULHU (Multiply High Unsigned) instruction
     /// Performs unsigned × unsigned multiplication and returns the upper 64 bits of the result
     pub fn mulhu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULHU, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::MULHU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -481,7 +570,8 @@ impl Riscv64InstructionBuilder {
     /// Generate DIV (Divide) instruction
     /// Performs signed division: rs1 ÷ rs2
     pub fn div(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIV, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIV, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -489,7 +579,8 @@ impl Riscv64InstructionBuilder {
     /// Generate DIVU (Divide Unsigned) instruction
     /// Performs unsigned division: rs1 ÷ rs2
     pub fn divu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIVU, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::DIVU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -497,7 +588,8 @@ impl Riscv64InstructionBuilder {
     /// Generate REM (Remainder) instruction
     /// Computes signed remainder: rs1 % rs2
     pub fn rem(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REM, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REM, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -505,7 +597,8 @@ impl Riscv64InstructionBuilder {
     /// Generate REMU (Remainder Unsigned) instruction
     /// Computes unsigned remainder: rs1 % rs2
     pub fn remu(&mut self, rd: Register, rs1: Register, rs2: Register) -> &mut Self {
-        let instr = self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REMU, rs1, rs2, m_funct7::M_EXT);
+        let instr =
+            self.encode_r_type_tracked(opcodes::OP, rd, m_funct3::REMU, rs1, rs2, m_funct7::M_EXT);
         self.push(instr);
         self
     }
@@ -690,7 +783,7 @@ impl Riscv64InstructionBuilder {
     pub fn sret(&mut self) -> &mut Self {
         let instr = super::instruction::encode_privileged_type(
             super::instruction::opcodes::SYSTEM,
-            super::instruction::privileged_funct12::SRET
+            super::instruction::privileged_funct12::SRET,
         );
         self.push(instr);
         self
@@ -702,7 +795,7 @@ impl Riscv64InstructionBuilder {
     pub fn mret(&mut self) -> &mut Self {
         let instr = super::instruction::encode_privileged_type(
             super::instruction::opcodes::SYSTEM,
-            super::instruction::privileged_funct12::MRET
+            super::instruction::privileged_funct12::MRET,
         );
         self.push(instr);
         self
@@ -713,7 +806,7 @@ impl Riscv64InstructionBuilder {
     pub fn ecall(&mut self) -> &mut Self {
         let instr = super::instruction::encode_privileged_type(
             super::instruction::opcodes::SYSTEM,
-            super::instruction::privileged_funct12::ECALL
+            super::instruction::privileged_funct12::ECALL,
         );
         self.push(instr);
         self
@@ -724,7 +817,7 @@ impl Riscv64InstructionBuilder {
     pub fn ebreak(&mut self) -> &mut Self {
         let instr = super::instruction::encode_privileged_type(
             super::instruction::opcodes::SYSTEM,
-            super::instruction::privileged_funct12::EBREAK
+            super::instruction::privileged_funct12::EBREAK,
         );
         self.push(instr);
         self
@@ -736,7 +829,7 @@ impl Riscv64InstructionBuilder {
     pub fn wfi(&mut self) -> &mut Self {
         let instr = super::instruction::encode_privileged_type(
             super::instruction::opcodes::SYSTEM,
-            super::instruction::privileged_funct12::WFI
+            super::instruction::privileged_funct12::WFI,
         );
         self.push(instr);
         self

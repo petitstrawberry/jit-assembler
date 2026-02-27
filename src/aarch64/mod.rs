@@ -39,13 +39,13 @@
 //! // let result = func.call(10, 20); // Returns 30
 //! ```
 
-pub mod instruction;
 pub mod builder;
+pub mod instruction;
 pub mod macros;
 
 #[cfg(test)]
 mod tests;
 
 // Re-export commonly used items
-pub use instruction::{Register, Instruction, reg};
 pub use builder::Aarch64InstructionBuilder;
+pub use instruction::{reg, Instruction, Register};
