@@ -164,6 +164,6 @@ macro_rules! jit_asm_generic {
         $(
             builder.$method($($args),*);
         )*
-        builder.instructions().unwrap().to_vec()
+        builder.instructions().map(|c| c.to_vec())
     }};
 }
