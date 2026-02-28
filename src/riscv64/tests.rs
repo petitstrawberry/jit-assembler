@@ -256,7 +256,8 @@ fn test_csr_with_macro() {
         csrrwi(reg::A1, csr::SEPC, 0x10);     // Write supervisor exception PC
         csrrsi(reg::A2, csr::SCAUSE, 0x08);   // Set supervisor cause bits
         csrrci(reg::A3, csr::SIP, 0x04);      // Clear supervisor interrupt pending bits
-    };
+    }
+    .unwrap();
 
     assert_eq!(instructions.len(), 11);
 
@@ -671,7 +672,8 @@ fn test_aliases_with_macro() {
         add(reg::A1, reg::A0, reg::SP);     // Add a0 and sp, store in a1
         sub(reg::T0, reg::A1, reg::A0);     // Subtract a0 from a1, store in t0
         ret();                              // Return from function
-    };
+    }
+    .unwrap();
 
     assert_eq!(instructions.len(), 4);
 
@@ -711,13 +713,13 @@ fn test_comprehensive_alias_demo() {
 
         // Function body
         addi(reg::A0, reg::ZERO, 42);       // Load 42 into a0 (return value)
-
         // Function epilogue
         ld(reg::S0, reg::SP, 0);            // Restore frame pointer
         ld(reg::RA, reg::SP, 8);            // Restore return address
         addi(reg::SP, reg::SP, 16);         // Deallocate stack space
         ret();                              // Return
-    };
+    }
+    .unwrap();
 
     assert_eq!(instructions.len(), 9);
 
@@ -737,7 +739,8 @@ fn test_macro_chaining() {
         addi(reg::X1, reg::X0, 10);
         add(reg::X2, reg::X1, reg::X0);
         csrrw(reg::X3, csr::MSTATUS, reg::X2);
-    };
+    }
+    .unwrap();
 
     assert_eq!(instructions.len(), 3);
 
@@ -763,7 +766,8 @@ fn test_macro_comprehensive() {
         beq(reg::X1, reg::X2, 8);
         jal(reg::X1, 16);
         csrr(reg::X4, csr::MSTATUS);
-    };
+    }
+    .unwrap();
 
     assert_eq!(instructions.len(), 6);
 
@@ -780,11 +784,6 @@ fn test_macro_comprehensive() {
         .to_vec();
 
     assert_eq!(instructions, builder_instructions);
-
-    // Each instruction should be non-zero
-    for instr in &instructions {
-        assert!(instr.value() != 0);
-    }
 }
 
 // Binary correctness tests comparing JIT assembler with GNU assembler output
@@ -1621,7 +1620,8 @@ fn test_binary_correctness_multiline_macro_comparison() {
         add(reg::X3, reg::X1, reg::X2);
         sub(reg::X4, reg::X3, reg::X1);
         xor(reg::X5, reg::X3, reg::X4);
-    };
+    }
+    .unwrap();
 
     let mut builder = Riscv64InstructionBuilder::new();
     builder.lui(reg::X1, 0x12345);

@@ -156,16 +156,16 @@ use jit_assembler::riscv64_asm;
 use jit_assembler::common::BuildError;
 
 // Simple function generator with macro
-fn generate_add_function(a: i16, b: i16) -> Vec<u8> {
+fn generate_add_function(a: i16, b: i16) -> Result<Vec<u8>, BuildError> {
     let instructions = riscv64_asm! {
         addi(reg::A0, reg::ZERO, a);       // Load first operand into a0
         addi(reg::A1, reg::ZERO, b);       // Load second operand into a1
         add(reg::A0, reg::A0, reg::A1);    // Add them, result in a0
         ret();                             // Return
-    };
+    }?;
     
     // Convert to bytes for execution
-    instructions.to_bytes()
+    Ok(instructions.to_bytes())
 }
 
 // Builder pattern for complex logic
@@ -190,11 +190,11 @@ use jit_assembler::common::{InstructionBuilder, BuildError};
 use jit_assembler::aarch64_asm;
 
 // Macro style (concise and assembly-like)
-fn generate_aarch64_add_function_macro() -> Vec<u8> {
+fn generate_aarch64_add_function_macro() -> Result<Vec<u8>, BuildError> {
     let instructions = aarch64_asm! {
         add(reg::X0, reg::X0, reg::X1);  // Add first two arguments (X0 + X1 -> X0)
         ret();                           // Return
-    };
+    }?;
     instructions
 }
 
